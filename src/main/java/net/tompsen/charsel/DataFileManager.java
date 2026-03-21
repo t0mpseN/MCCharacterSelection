@@ -13,10 +13,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class DataFileManager {
-
     private final Path DATA_FILE_PATH = FabricLoader.getInstance()
             .getGameDir().resolve("charsel/characters.dat");
-
+    private final Path INDEX_FILE_PATH = FabricLoader.getInstance()
+            .getGameDir().resolve("charsel/last_used.dat");
     public List<CharacterDto> characterList = new ArrayList<>();
 
     public DataFileManager() {
@@ -83,5 +83,24 @@ public class DataFileManager {
 
     public Optional<CharacterDto> findById(UUID id) {
         return characterList.stream().filter(c -> c.id().equals(id)).findFirst();
+    }
+
+    public void saveLastUsed(UUID playerUuid, UUID characterId) {
+        try {
+            NbtCompound root = Files.exists(INDEX_FILE_PATH)
+                    ? NbtIo.readCompressed(INDEX_FILE_PATH, NbtSizeTracker.ofUnlimitedBytes())
+                    : new NbtCompound();
+            root.putUuid(playerUuid.toString(), characterId);
+            NbtIo.writeCompressed(root, INDEX_FILE_PATH);
+        } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    public UUID getLastUsed(UUID playerUuid) {
+        try {
+            if (!Files.exists(INDEX_FILE_PATH)) return null;
+            NbtCompound root = NbtIo.readCompressed(INDEX_FILE_PATH, NbtSizeTracker.ofUnlimitedBytes());
+            String key = playerUuid.toString();
+            return root.contains(key) ? root.getUuid(key) : null;
+        } catch (IOException e) { return null; }
     }
 }

@@ -5,18 +5,22 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class CharacterSelectionNetwork {
+    private static final Map<UUID, Integer> pendingSaveTicks = new ConcurrentHashMap<>();
     public static void register() {
         PayloadTypeRegistry.playC2S().register(SelectCharacterPayload.ID, PacketCodec.of(
                 SelectCharacterPayload::write, SelectCharacterPayload::new
         ));
-        PayloadTypeRegistry.playC2S().register(RequestSavePayload.ID,
-                PacketCodec.unit(new RequestSavePayload()));
         PayloadTypeRegistry.playS2C().register(ModPresentPayload.ID,
                 PacketCodec.unit(new ModPresentPayload()));
         PayloadTypeRegistry.playS2C().register(SaveCharacterPayload.ID, PacketCodec.of(
                 SaveCharacterPayload::write, SaveCharacterPayload::new
         ));
+        PayloadTypeRegistry.playS2C().register(SkinReloadPayload.ID, SkinReloadPayload.CODEC);
 
         // Client sends selected character → server loads it
         ServerPlayNetworking.registerGlobalReceiver(SelectCharacterPayload.ID, (payload, context) -> {
@@ -29,17 +33,9 @@ public class CharacterSelectionNetwork {
                 );
             });
         });
+    }
 
-        // Client requests save
-        ServerPlayNetworking.registerGlobalReceiver(RequestSavePayload.ID, (payload, context) -> {
-            context.server().execute(() -> {
-                ServerPlayerEntity player = context.player();
-                CharacterDataManager.saveCurrentCharacter(player);
-                CharacterDto current = CharacterSelection.getSelectedCharacter(player);
-                if (current != null && ServerPlayNetworking.canSend(player.networkHandler, SaveCharacterPayload.ID)) {
-                    ServerPlayNetworking.send(player, new SaveCharacterPayload(current.toNbt()));
-                }
-            });
-        });
+    public static Map<UUID, Integer> getPendingSaveTicks() {
+        return pendingSaveTicks;
     }
 }

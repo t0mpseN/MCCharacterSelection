@@ -11,7 +11,9 @@ public record CharacterDto(
         NbtCompound playerNbt,
         NbtCompound worldPositions,  // key = worldId, value = {x, y, z, yaw, pitch}
         String skinValue,    // base64 encoded texture
-        String skinSignature
+        String skinSignature,
+        String skinUsername,
+        NbtCompound modData
 ) {
     public NbtCompound toNbt() {
         NbtCompound nbt = new NbtCompound();
@@ -21,6 +23,8 @@ public record CharacterDto(
         nbt.put("worldPositions", worldPositions);
         nbt.putString("skinValue", skinValue != null ? skinValue : "");
         nbt.putString("skinSignature", skinSignature != null ? skinSignature : "");
+        nbt.putString("skinUsername", skinUsername != null ? skinUsername : "");
+        nbt.put("modData", modData);
         return nbt;
     }
 
@@ -31,7 +35,9 @@ public record CharacterDto(
                 nbt.getCompound("playerNbt"),
                 nbt.getCompound("worldPositions"),
                 nbt.getString("skinValue"),
-                nbt.getString("skinSignature")
+                nbt.getString("skinSignature"),
+                nbt.getString("skinUsername"),
+                nbt.contains("modData") ? nbt.getCompound("modData") : new NbtCompound()
         );
     }
 }

@@ -1,6 +1,7 @@
 package net.tompsen.charsel;
 
 import com.mojang.authlib.properties.Property;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
@@ -54,11 +55,32 @@ public class CharacterDataManager {
 
         String skinValue = character.skinValue();
         String skinSig   = character.skinSignature();
+
         if (skinValue != null && !skinValue.isEmpty()) {
             player.getGameProfile().getProperties().removeAll("textures");
-            player.getGameProfile().getProperties().put("textures", new Property("textures", skinValue, skinSig));
+            player.getGameProfile().getProperties().put("textures",
+                    new Property("textures", skinValue, skinSig));
             applySkingToAllClients(player);
+            if (ServerPlayNetworking.canSend(player.networkHandler, SkinReloadPayload.ID)) {
+                ServerPlayNetworking.send(player,
+                        new SkinReloadPayload(skinValue, skinSig != null ? skinSig : ""));
+            }
+        } else {
+            // Sem skin custom — captura a skin Mojang real e salva no personagem
+            // para o preview ficar consistente com o in-game
+            String[] actualSkin = getSkinProperties(player);
+            if (!actualSkin[0].isEmpty()) {
+                CharacterDto withSkin = new CharacterDto(
+                        character.id(), character.name(), character.playerNbt(),
+                        character.worldPositions(), actualSkin[0], actualSkin[1],
+                        character.skinUsername(), character.modData()
+                );
+                CharacterSelection.setSelectedCharacter(player, withSkin);
+                CharacterSelection.DATA_FILE_MANAGER.updateCharacter(withSkin);
+            }
         }
+
+        ModDataScanner.restorePlayerModData(player, character.modData());
 
         player.sendAbilitiesUpdate();
         player.getInventory().markDirty();
@@ -83,8 +105,11 @@ public class CharacterDataManager {
         worldPositions.put(worldId, pos);
 
         String[] skin = getSkinProperties(player);
+        NbtCompound modData = ModDataScanner.scanPlayerModData(player);
+
         CharacterDto updated = new CharacterDto(
-                current.id(), current.name(), playerNbt, worldPositions, skin[0], skin[1]
+                current.id(), current.name(), playerNbt, worldPositions,
+                skin[0], skin[1], current.skinUsername(), current.modData()
         );
 
         CharacterSelection.setSelectedCharacter(player, updated);

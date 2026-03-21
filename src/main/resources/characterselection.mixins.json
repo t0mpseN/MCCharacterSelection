@@ -3,6 +3,7 @@
 	"package": "net.tompsen.charsel.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
+		"PlayerManagerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

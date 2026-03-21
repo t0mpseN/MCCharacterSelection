@@ -21,6 +21,9 @@ public class CharacterSelection implements ModInitializer {
 	public static CharacterDto selectedCharacter = null;
 	// Per-player map instead of single static field
 	public static final Map<UUID, CharacterDto> selectedCharacters = new ConcurrentHashMap<>();
+	// Track when players joined
+	public static final Map<UUID, Long> playerJoinTick = new ConcurrentHashMap<>();
+
 
 	public static CharacterDto getSelectedCharacter(ServerPlayerEntity player) {
 		return selectedCharacters.get(player.getUuid());
@@ -40,7 +43,9 @@ public class CharacterSelection implements ModInitializer {
 		CharacterSelectionNetwork.register();
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			playerJoinTick.put(handler.player.getUuid(), (long) server.getTicks());
 			ServerPlayerEntity player = handler.player;
+			ModDataScanner.debugWorldStructure(player);
 
 			if (server.isDedicated()) {
 				if (ServerPlayNetworking.canSend(handler, ModPresentPayload.ID)) {
@@ -58,15 +63,23 @@ public class CharacterSelection implements ModInitializer {
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			ServerPlayerEntity player = handler.player;
-
-			// Save first
-			CharacterDataManager.saveCurrentCharacter(player);
-			CharacterSelection.clearSelectedCharacter(player);
+			// Small delay to let Cobblemon write first
+			server.execute(() -> server.execute(() -> {
+				CharacterDataManager.saveCurrentCharacter(player);
+				CharacterSelection.clearSelectedCharacter(player);
+				playerJoinTick.remove(player.getUuid());
+			}));
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
-			if (server.getTicks() % 600 == 0) {
+			int tick = server.getTicks();
+
+			// Cobblemon autosaves every 6000 ticks — scan 300 ticks (15s) after to let it finish writing
+			if (tick % 6000 == 300) {
 				for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+					Long joinTick = CharacterSelection.playerJoinTick.get(player.getUuid());
+					if (joinTick == null || tick - joinTick < 200) continue;
+
 					CharacterDataManager.saveCurrentCharacter(player);
 
 					CharacterDto current = CharacterSelection.getSelectedCharacter(player);

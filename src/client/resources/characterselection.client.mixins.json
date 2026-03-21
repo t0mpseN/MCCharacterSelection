@@ -6,7 +6,8 @@
 		"TitleScreenMixin",
 		"WorldEntryMixin",
 		"CreateWorldScreenMixin",
-		"CreateWorldScreenAccessor"
+		"CreateWorldScreenAccessor",
+		"LivingEntityRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

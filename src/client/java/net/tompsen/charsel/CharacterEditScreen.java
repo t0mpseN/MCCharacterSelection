@@ -4,25 +4,24 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
-import java.util.UUID;
-
-public class CharacterCreationScreen extends Screen {
+public class CharacterEditScreen extends Screen {
     private final Screen parent;
-    private final Runnable onAdd;
+    private final CharacterDto character;
+    private final Runnable onSave;
     private TextFieldWidget nameField;
     private TextFieldWidget skinField;
     private String statusMessage = "";
     private int statusColor = 0xAAAAAA;
     private boolean fetching = false;
 
-    public CharacterCreationScreen(Screen parent, Runnable onAdd) {
-        super(Text.literal("New Character"));
+    public CharacterEditScreen(Screen parent, CharacterDto character, Runnable onSave) {
+        super(Text.literal("Edit Character"));
         this.parent = parent;
-        this.onAdd = onAdd;
+        this.character = character;
+        this.onSave = onSave;
     }
 
     @Override
@@ -31,14 +30,16 @@ public class CharacterCreationScreen extends Screen {
         int py = height / 2 - 80;
 
         nameField = new TextFieldWidget(textRenderer, cx - 100, py + 50, 200, 20, Text.literal("Name"));
-        nameField.setPlaceholder(Text.literal("Character name..."));
+        nameField.setText(character.name());
         addDrawableChild(nameField);
 
         skinField = new TextFieldWidget(textRenderer, cx - 100, py + 100, 200, 20, Text.literal("Skin"));
+        String currentUsername = character.skinUsername() != null ? character.skinUsername() : "";
+        skinField.setText(currentUsername.startsWith("__default__:") ? "" : currentUsername);
         skinField.setPlaceholder(Text.literal("Minecraft username..."));
         addDrawableChild(skinField);
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Create").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)), btn -> confirm())
+        addDrawableChild(ButtonWidget.builder(Text.literal("Save").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)), btn -> confirm())
                 .dimensions(cx - 100, py + 140, 95, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Cancel").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)), btn -> client.setScreen(parent))
                 .dimensions(cx + 5, py + 140, 95, 20).build());
@@ -46,40 +47,38 @@ public class CharacterCreationScreen extends Screen {
 
     private void confirm() {
         String name = nameField.getText().trim();
-        if (name.isEmpty()) {
-            statusMessage = "Name cannot be empty";
-            statusColor = 0xFF5555;
-            return;
-        }
+        if (name.isEmpty()) { statusMessage = "Name cannot be empty"; statusColor = 0xFF5555; return; }
 
-        String skinUsername = skinField.getText().trim();
-        if (!skinUsername.isEmpty()) {
+        String newUsername = skinField.getText().trim();
+        String oldUsername = character.skinUsername() != null ? character.skinUsername() : "";
+        boolean usernameChanged = !newUsername.isEmpty() && !newUsername.equals(
+                oldUsername.startsWith("__default__:") ? "" : oldUsername);
+
+        if (usernameChanged) {
             fetching = true;
-            statusMessage = "Fetching skin for " + skinUsername + "...";
+            statusMessage = "Fetching skin for " + newUsername + "...";
             statusColor = 0xAAAAAA;
-
-            SkinFetcher.fetchByUsername(skinUsername, (value, signature, error) -> {
-                client.execute(() -> {
-                    fetching = false;
-                    if (error != null) {
-                        statusMessage = error;
-                        statusColor = 0xFF5555;
-                        return;
-                    }
-                    createCharacter(name, skinUsername, value, signature);
-                });
-            });
+            SkinFetcher.fetchByUsername(newUsername, (value, signature, error) ->
+                    client.execute(() -> {
+                        fetching = false;
+                        if (error != null) { statusMessage = error; statusColor = 0xFF5555; return; }
+                        save(name, newUsername, value, signature);
+                    }));
         } else {
-            createCharacter(name, "", "", "");
+            save(name, oldUsername, character.skinValue(), character.skinSignature());
         }
     }
 
-    private void createCharacter(String name, String skinUsername, String skinValue, String skinSignature) {
-        CharacterSelection.DATA_FILE_MANAGER.addCharacter(new CharacterDto(
-                UUID.randomUUID(), name, new NbtCompound(), new NbtCompound(),
-                skinValue, skinSignature, skinUsername, new NbtCompound()
-        ));
-        onAdd.run();
+    private void save(String name, String skinUsername, String skinValue, String skinSignature) {
+        CharacterDto updated = new CharacterDto(
+                character.id(), name, character.playerNbt(), character.worldPositions(),
+                skinValue  != null ? skinValue  : "",
+                skinSignature != null ? skinSignature : "",
+                skinUsername, character.modData()
+        );
+        CharacterSelection.DATA_FILE_MANAGER.updateCharacter(updated);
+        DummyPlayerManager.invalidateDummies();
+        onSave.run();
         client.setScreen(parent);
     }
 
@@ -98,7 +97,7 @@ public class CharacterCreationScreen extends Screen {
 
         int py = height / 2 - 80;
 
-        Text title = Text.literal("NEW CHARACTER").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT));
+        Text title = Text.literal("EDIT CHARACTER").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT));
         ctx.drawTextWithShadow(textRenderer, title, width / 2 - textRenderer.getWidth(title) / 2, py + 16, 0xFFFFFF);
 
         Text nameLabel = Text.literal("Name").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY);

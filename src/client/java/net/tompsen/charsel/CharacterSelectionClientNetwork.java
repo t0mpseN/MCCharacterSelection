@@ -23,13 +23,5 @@ public class CharacterSelectionClientNetwork {
                 CharacterSelection.DATA_FILE_MANAGER.updateCharacter(updated);
             });
         });
-
-        // Proactively request save every 2.5 seconds from client side
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.world == null || client.player == null) return;
-            if (client.player.age % 50 == 0 && CharacterSelection.selectedCharacter != null) {
-                ClientPlayNetworking.send(new RequestSavePayload());
-            }
-        });
     }
 }
