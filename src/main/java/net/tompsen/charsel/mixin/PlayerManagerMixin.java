@@ -51,6 +51,16 @@ public class PlayerManagerMixin {
         prepareCharacterData(player);
     }
 
+    @Inject(method = "respawnPlayer", at = @At("HEAD"), cancellable = true)
+    private void onRespawn(ServerPlayerEntity player, boolean alive, net.minecraft.entity.Entity.RemovalReason removalReason, CallbackInfoReturnable<ServerPlayerEntity> cir) {
+        CharacterDto character = CharacterSelection.getSelectedCharacter(player);
+        if (character != null && character.playerNbt().getBoolean("hardcore")) {
+            // Kick the player instead of just returning - this ensures they can't stay dead in the world
+            player.networkHandler.disconnect(net.minecraft.text.Text.literal("Your character has perished in Hardcore mode."));
+            cir.setReturnValue(player); // Return anything to satisfy the mixin
+        }
+    }
+
     private void prepareCharacterData(ServerPlayerEntity player) {
         Map<UUID, PlayerAdvancementTracker> trackers = ((PlayerManagerAccessor)(Object)this).getAdvancementTrackers();
         // If advancement tracker is already created, we likely already ran this logic via getStatsHandler or another call

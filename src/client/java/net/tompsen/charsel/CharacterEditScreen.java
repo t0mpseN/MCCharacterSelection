@@ -147,7 +147,7 @@ public class CharacterEditScreen extends Screen {
         int vh = (int) (height / scale);
 
         ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, 0, 50);
+        ctx.getMatrices().translate(0, 0, 300);
         ctx.fill(0, 0, width, height, 0xD0000000);
 
         ctx.getMatrices().scale(scale, scale, 1.0f);
@@ -182,8 +182,15 @@ public class CharacterEditScreen extends Screen {
 
         // Draw Status Message
         if (!statusMessage.isEmpty()) {
-            Text statusTxt = Text.literal(statusMessage).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterUiHelper.CUSTOM_FONT));
-            CharacterUiHelper.drawRetroText(ctx, textRenderer, statusTxt, cx - textRenderer.getWidth(statusTxt) / 2, py + 205, statusColor);
+            if (statusMessage.contains("already exists")) {
+                Text line1 = Text.literal("A character with this").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterUiHelper.CUSTOM_FONT));
+                Text line2 = Text.literal("name already exists").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterUiHelper.CUSTOM_FONT));
+                CharacterUiHelper.drawRetroText(ctx, textRenderer, line1, cx - textRenderer.getWidth(line1) / 2, py + 195, statusColor);
+                CharacterUiHelper.drawRetroText(ctx, textRenderer, line2, cx - textRenderer.getWidth(line2) / 2, py + 207, statusColor);
+            } else {
+                Text statusTxt = Text.literal(statusMessage).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterUiHelper.CUSTOM_FONT));
+                CharacterUiHelper.drawRetroText(ctx, textRenderer, statusTxt, cx - textRenderer.getWidth(statusTxt) / 2, py + 205, statusColor);
+            }
         }
 
         ctx.getMatrices().pop();

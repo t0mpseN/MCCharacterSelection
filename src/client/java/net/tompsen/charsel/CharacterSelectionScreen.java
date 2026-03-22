@@ -196,7 +196,7 @@ public class CharacterSelectionScreen extends Screen {
 
                 if (clickedIndex >= 0 && clickedIndex < characters.size()) {
                     int cardY = (int) (listY + clickedIndex * stride - scrollAmount);
-                    int btnY = cardY + (CharacterCardRenderer.CARD_H - 20) / 2;
+                    int btnY = cardY + 27; // Aligned with bottom of face
                     int delX = listX + CARD_W - 28, editX = delX - 24;
                     CharacterDto chDto = characters.get(clickedIndex);
 

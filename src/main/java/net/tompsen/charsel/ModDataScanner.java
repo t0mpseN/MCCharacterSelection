@@ -97,6 +97,7 @@ public class ModDataScanner {
         Path worldDir = player.server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();
         String uuidStr = player.getUuid().toString();
 
+        // Clear files in root subfolders
         try (Stream<Path> dirs = Files.list(worldDir)) {
             dirs.filter(Files::isDirectory)
                     .filter(dir -> !IGNORED_FOLDERS.contains(dir.getFileName().toString()))
@@ -110,6 +111,18 @@ public class ModDataScanner {
                                             CharacterSelection.LOGGER.info("[CharSel] Deleted stale mod file: {}", file);
                                         } catch (IOException ignored) {}
                                     });
+                        } catch (IOException ignored) {}
+                    });
+        } catch (IOException ignored) {}
+
+        // Specifically clear root files if any (though usually mod data is in subfolders)
+        try (Stream<Path> rootFiles = Files.list(worldDir)) {
+            rootFiles.filter(Files::isRegularFile)
+                    .filter(file -> file.getFileName().toString().contains(uuidStr))
+                    .forEach(file -> {
+                        try {
+                            Files.delete(file);
+                            CharacterSelection.LOGGER.info("[CharSel] Deleted stale root file: {}", file);
                         } catch (IOException ignored) {}
                     });
         } catch (IOException ignored) {}

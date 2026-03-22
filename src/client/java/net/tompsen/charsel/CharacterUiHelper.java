@@ -197,11 +197,9 @@ public class CharacterUiHelper {
                 Identifier advId = Identifier.tryParse(latestId);
                 if (advId != null) {
                     net.minecraft.advancement.AdvancementEntry entry = client.getNetworkHandler().getAdvancementHandler().getManager().get(advId).getAdvancementEntry();
-                    if (entry != null) {
-                        if (entry.value().display().isPresent()) {
-                            net.minecraft.advancement.AdvancementDisplay display = entry.value().display().get();
-                            return new AdvancementInfo(display.getTitle().getString(), display.getDescription().getString(), display.getIcon());
-                        }
+                    if (entry != null && entry.value().display().isPresent()) {
+                        net.minecraft.advancement.AdvancementDisplay display = entry.value().display().get();
+                        return new AdvancementInfo(display.getTitle().getString(), display.getDescription().getString(), display.getIcon());
                     }
                 }
             }

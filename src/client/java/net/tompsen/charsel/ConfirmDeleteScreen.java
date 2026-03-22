@@ -58,7 +58,7 @@ public class ConfirmDeleteScreen extends Screen {
         int vh = (int) (height / scale);
 
         ctx.getMatrices().push();
-        ctx.getMatrices().translate(0, 0, 50);
+        ctx.getMatrices().translate(0, 0, 300);
         ctx.fill(0, 0, width, height, 0xD0000000);
 
         ctx.getMatrices().scale(scale, scale, 1.0f);

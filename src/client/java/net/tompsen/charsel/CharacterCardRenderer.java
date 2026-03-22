@@ -44,7 +44,7 @@ public class CharacterCardRenderer {
         Formatting color;
         
         if (isHardcore) {
-            classStr = "☠ Hardcore";
+            classStr = "Hardcore";
             color = Formatting.DARK_RED;
         } else {
             switch (gameMode) {
