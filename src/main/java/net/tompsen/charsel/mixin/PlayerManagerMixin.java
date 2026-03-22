@@ -55,9 +55,11 @@ public class PlayerManagerMixin {
     private void onRespawn(ServerPlayerEntity player, boolean alive, net.minecraft.entity.Entity.RemovalReason removalReason, CallbackInfoReturnable<ServerPlayerEntity> cir) {
         CharacterDto character = CharacterSelection.getSelectedCharacter(player);
         if (character != null && character.playerNbt().getBoolean("hardcore")) {
-            // Kick the player instead of just returning - this ensures they can't stay dead in the world
-            player.networkHandler.disconnect(net.minecraft.text.Text.literal("Your character has perished in Hardcore mode."));
-            cir.setReturnValue(player); // Return anything to satisfy the mixin
+            // Hardcore character died - it's already removed from the list in AFTER_DEATH.
+            // Switch to spectator and notify.
+            player.changeGameMode(net.minecraft.world.GameMode.SPECTATOR);
+            player.sendMessage(net.minecraft.text.Text.literal("§cYour character has perished and was removed from the list. §7You are now spectating."));
+            cir.setReturnValue(player);
         }
     }
 

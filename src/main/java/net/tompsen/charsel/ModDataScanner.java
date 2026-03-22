@@ -97,25 +97,28 @@ public class ModDataScanner {
         Path worldDir = player.server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();
         String uuidStr = player.getUuid().toString();
 
-        // Clear files in root subfolders
+        // 1. Clear files in subfolders (Mods + Vanilla folders we usually skip in scanning)
         try (Stream<Path> dirs = Files.list(worldDir)) {
             dirs.filter(Files::isDirectory)
-                    .filter(dir -> !IGNORED_FOLDERS.contains(dir.getFileName().toString()))
                     .forEach(dir -> {
+                        // Skip folders that definitely don't contain player files
+                        String dirName = dir.getFileName().toString();
+                        if (dirName.equals("region") || dirName.equals("DIM1") || dirName.equals("DIM-1") || dirName.equals("datapacks")) return;
+
                         try (Stream<Path> walk = Files.walk(dir)) {
                             walk.filter(Files::isRegularFile)
                                     .filter(file -> file.getFileName().toString().contains(uuidStr))
                                     .forEach(file -> {
                                         try {
                                             Files.delete(file);
-                                            CharacterSelection.LOGGER.info("[CharSel] Deleted stale mod file: {}", file);
+                                            CharacterSelection.LOGGER.info("[CharSel] Deleted stale data file: {}", file);
                                         } catch (IOException ignored) {}
                                     });
                         } catch (IOException ignored) {}
                     });
         } catch (IOException ignored) {}
 
-        // Specifically clear root files if any (though usually mod data is in subfolders)
+        // 2. Specifically clear root files if any
         try (Stream<Path> rootFiles = Files.list(worldDir)) {
             rootFiles.filter(Files::isRegularFile)
                     .filter(file -> file.getFileName().toString().contains(uuidStr))

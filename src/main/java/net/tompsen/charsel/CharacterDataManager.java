@@ -20,16 +20,21 @@ public class CharacterDataManager {
         CharacterDto character = CharacterSelection.getSelectedCharacter(player);
         if (character == null) return;
 
+        // 0. Proactively clear stale files before doing anything else
+        ModDataScanner.clearPlayerModData(player);
+
         String worldId = getWorldId(player);
         NbtCompound playerNbt = character.playerNbt().copy();
         NbtCompound worldPositions = character.worldPositions();
 
+        boolean inherited = false;
         // 1. Handle Inheritance & Stacking for First-Time Join
         if (!worldPositions.contains(worldId)) {
             if (character.name().equalsIgnoreCase(player.getGameProfile().getName())) {
                 NbtCompound worldData = ModDataScanner.loadPlayerNbtFromWorld(player);
                 if (!worldData.isEmpty()) {
                     playerNbt = mergePlayerNbt(player, playerNbt, worldData);
+                    inherited = true;
                     CharacterSelection.LOGGER.info("[CharSel] Character {} inherited existing data for {} in {}",
                             character.name(), player.getName().getString(), worldId);
                 }
@@ -45,7 +50,7 @@ public class CharacterDataManager {
             playerNbt.remove("Dimension");
             playerNbt.remove("SpawnDimension");
             
-            // We use the character's stored gamemode/hardcore
+            // We use the character's stored gamemode
             int gmId = playerNbt.contains("playerGameType") ? playerNbt.getInt("playerGameType") : 0;
 
             UUID uuid = player.getUuid();
@@ -55,6 +60,12 @@ public class CharacterDataManager {
 
             // Re-apply character-specific gamemode
             player.changeGameMode(GameMode.byId(gmId));
+
+            // Force health/hunger reset for non-inherited first-time join if NBT was partial
+            if (!inherited && !worldPositions.contains(worldId)) {
+                player.setHealth(player.getMaxHealth());
+                player.getHungerManager().setFoodLevel(20);
+            }
         } else {
             // New character — ensure clean slate
             player.getInventory().clear();
