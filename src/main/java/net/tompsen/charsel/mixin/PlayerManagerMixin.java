@@ -51,15 +51,14 @@ public class PlayerManagerMixin {
         prepareCharacterData(player);
     }
 
-    @Inject(method = "respawnPlayer", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "respawnPlayer", at = @At("RETURN"))
     private void onRespawn(ServerPlayerEntity player, boolean alive, net.minecraft.entity.Entity.RemovalReason removalReason, CallbackInfoReturnable<ServerPlayerEntity> cir) {
-        CharacterDto character = CharacterSelection.getSelectedCharacter(player);
-        if (character != null && character.playerNbt().getBoolean("hardcore")) {
+        ServerPlayerEntity newPlayer = cir.getReturnValue();
+        if (CharacterSelection.deadHardcorePlayers.remove(newPlayer.getUuid())) {
             // Hardcore character died - it's already removed from the list in AFTER_DEATH.
-            // Switch to spectator and notify.
-            player.changeGameMode(net.minecraft.world.GameMode.SPECTATOR);
-            player.sendMessage(net.minecraft.text.Text.literal("§cYour character has perished and was removed from the list. §7You are now spectating."));
-            cir.setReturnValue(player);
+            // Switch the NEW player instance to spectator and notify.
+            newPlayer.changeGameMode(net.minecraft.world.GameMode.SPECTATOR);
+            newPlayer.sendMessage(net.minecraft.text.Text.literal("§cYour character has perished and was removed from the list. §7You are now spectating."));
         }
     }
 

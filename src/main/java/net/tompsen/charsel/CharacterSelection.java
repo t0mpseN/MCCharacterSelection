@@ -23,6 +23,7 @@ public class CharacterSelection implements ModInitializer {
 	public static final Map<UUID, CharacterDto> selectedCharacters = new ConcurrentHashMap<>();
 	// Track when players joined
 	public static final Map<UUID, Long> playerJoinTick = new ConcurrentHashMap<>();
+	public static final java.util.Set<UUID> deadHardcorePlayers = java.util.Collections.newSetFromMap(new ConcurrentHashMap<>());
 
 
 	public static CharacterDto getSelectedCharacter(ServerPlayerEntity player) {
@@ -66,6 +67,7 @@ public class CharacterSelection implements ModInitializer {
 				CharacterDto character = getSelectedCharacter(player);
 				if (character != null && character.playerNbt().getBoolean("hardcore")) {
 					LOGGER.info("[CharSel] Character {} died in Hardcore mode! Deleting...", character.name());
+					deadHardcorePlayers.add(player.getUuid());
 					DATA_FILE_MANAGER.deleteCharacter(character.id());
 					clearSelectedCharacter(player);
 				}
