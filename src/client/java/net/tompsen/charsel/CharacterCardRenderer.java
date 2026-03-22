@@ -43,9 +43,11 @@ public class CharacterCardRenderer {
         Text classTxt = Text.literal(classStr).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(isCreative ? Formatting.AQUA : Formatting.GRAY);
         CharacterListScreen.drawRetroText(ctx, tr, classTxt, x + 56 + tr.getWidth(nameTxt) + 8, y + 14, 0xFFFFFF);
 
-        // Level directly below the name
-        int level = c.playerNbt().isEmpty() ? 0 : c.playerNbt().getInt("XpLevel");
-        Text lvlTxt = Text.literal("LVL " + level).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.YELLOW);
-        CharacterListScreen.drawRetroText(ctx, tr, lvlTxt, x + 56, y + 30, 0xFFFFFF);
+        // Level directly below the name (Only render if NOT in creative!)
+        if (!isCreative) {
+            int level = c.playerNbt().isEmpty() ? 0 : c.playerNbt().getInt("XpLevel");
+            Text lvlTxt = Text.literal("LVL " + level).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.YELLOW);
+            CharacterListScreen.drawRetroText(ctx, tr, lvlTxt, x + 56, y + 30, 0xFFFFFF);
+        }
     }
 }

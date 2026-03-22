@@ -44,7 +44,7 @@ public class CharacterSelectionClient implements ClientModInitializer {
 		});
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-			CharacterSelection.selectedCharacter = null;
+			CharacterSelection.selectedCharacter = null; // safety net
 		});
 	}
 }

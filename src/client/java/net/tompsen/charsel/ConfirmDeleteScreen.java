@@ -5,11 +5,14 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Identifier;
 
 public class ConfirmDeleteScreen extends Screen {
     private final Screen parent;
     private final Runnable onConfirm;
     private final String characterName;
+
+    private static final Identifier TRASH_ICON = Identifier.of("characterselection", "textures/gui/trash.png");
 
     public ConfirmDeleteScreen(Screen parent, String characterName, Runnable onConfirm) {
         super(Text.literal("Confirm Delete"));
@@ -20,30 +23,83 @@ public class ConfirmDeleteScreen extends Screen {
 
     @Override
     protected void init() {
-        addDrawableChild(ButtonWidget.builder(Text.literal("Delete").formatted(Formatting.RED), btn -> {
+        int cx = width / 2;
+        int cy = height / 2;
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("Delete").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.RED), btn -> {
             onConfirm.run();
             client.setScreen(parent);
-        }).dimensions(width / 2 - 104, height / 2 + 20, 100, 20).build());
+        }).dimensions(cx - 104, cy + 24, 100, 20).build());
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), btn -> client.setScreen(parent))
-                .dimensions(width / 2 + 4, height / 2 + 20, 100, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("Cancel").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)), btn -> client.setScreen(parent))
+                .dimensions(cx + 4, cy + 24, 100, 20).build());
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fillGradient(0, 0, width, height, 0xC0000000, 0xC0000000);
-        int cx = width / 2, cy = height / 2;
-        context.fill(cx - 120, cy - 50, cx + 120, cy + 50, 0xFF1E1E1E);
-        context.fill(cx - 120, cy - 50, cx + 120, cy - 48, 0xFFCC3333);
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("⚠ Delete Character?").formatted(Formatting.RED, Formatting.BOLD),
-                cx, cy - 38, 0xFF5555);
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("\"" + characterName + "\"").formatted(Formatting.WHITE),
-                cx, cy - 22, 0xFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("All progress will be lost forever.").formatted(Formatting.GRAY),
-                cx, cy - 8, 0xAAAAAA);
-        super.render(context, mouseX, mouseY, delta);
+    public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        // Draw nothing! We want the previous screen (CharacterListScreen) to still be visible behind our modal.
+    }
+
+    @Override
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        // 1. Draw the parent screen underneath first! This creates the "modal overlay" effect without a black dim.
+        parent.render(ctx, mouseX, mouseY, delta);
+
+        // 2. Draw a completely dark translucent overlay to dim the background
+        ctx.fillGradient(0, 0, width, height, 0xD0000000, 0xD0000000);
+
+        int cx = width / 2;
+        int cy = height / 2;
+        int panelW = 280; // Increased width so text easily fits
+        int panelH = 110;
+        int panelX = cx - panelW / 2;
+        int panelY = cy - panelH / 2;
+
+        // 3. Draw the retro Minecraft panel
+        CharacterListScreen.drawMinecraftPanel(ctx, panelX, panelY, panelW, panelH);
+
+        // 4. Draw a red warning stripe at the top
+        ctx.fill(panelX + 4, panelY + 4, panelX + panelW - 4, panelY + 6, 0xFFCC3333);
+
+        // 5. Draw the Trash Icon next to the Scaled Title
+        int titleY = panelY + 16;
+        int trashW = 16;
+        int titleTextW = (int) (textRenderer.getWidth("DELETE CHARACTER?") * 1.2f);
+
+        // Center the icon+title block together
+        int blockX = cx - (trashW + 4 + titleTextW) / 2;
+
+        ctx.drawTexture(TRASH_ICON, blockX, titleY - 2, 0, 0, 16, 16, 16, 16);
+        drawScaledWarningTitle(ctx, "DELETE CHARACTER?", blockX + 20 + titleTextW / 2, titleY, 1.2f);
+
+        // 6. Draw the Character Name (Centered)
+        Text nameTxt = Text.literal("\"" + characterName + "\"").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.WHITE);
+        int nameW = textRenderer.getWidth(nameTxt);
+        CharacterListScreen.drawRetroText(ctx, textRenderer, nameTxt, cx - nameW / 2, panelY + 38, 0xFFFFFF);
+
+        // 7. Draw the Warning Subtitle (Centered)
+        Text warnTxt = Text.literal("All progress will be lost forever.").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY);
+        int warnW = textRenderer.getWidth(warnTxt);
+        CharacterListScreen.drawRetroText(ctx, textRenderer, warnTxt, cx - warnW / 2, panelY + 52, 0xFFFFFF);
+
+        super.render(ctx, mouseX, mouseY, delta);
+    }
+
+    private void drawScaledWarningTitle(DrawContext ctx, String text, int centerX, int y, float scale) {
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(centerX, y, 0);
+        ctx.getMatrices().scale(scale, scale, 1.0F);
+
+        int w = textRenderer.getWidth(text);
+
+        // Pure black shadow
+        Text shadowText = Text.literal(text).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT));
+        ctx.drawText(textRenderer, shadowText, -w / 2 + 1, 1, 0xFF000000, false);
+
+        // Red title text
+        Text t = Text.literal(text).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT));
+        ctx.drawText(textRenderer, t, -w / 2, 0, 0xFF5555, false);
+
+        ctx.getMatrices().pop();
     }
 }

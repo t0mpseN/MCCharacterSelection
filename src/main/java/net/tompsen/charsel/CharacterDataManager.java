@@ -11,6 +11,7 @@ import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
+import net.tompsen.charsel.mixin.PlayerManagerAccessor;
 
 import java.util.*;
 
@@ -36,6 +37,15 @@ public class CharacterDataManager {
                 int gameModeId = character.playerNbt().getInt("playerGameType");
                 player.changeGameMode(GameMode.byId(gameModeId));
             }
+        } else {
+            // New character — ensure clean slate
+            player.getInventory().clear();
+            player.experienceLevel = 0;
+            player.experienceProgress = 0f;
+            player.totalExperience = 0;
+            player.setHealth(player.getMaxHealth());
+            player.getHungerManager().setFoodLevel(20);
+            player.getHungerManager().setSaturationLevel(5.0f);
         }
 
         String worldId = getWorldId(player);
@@ -109,13 +119,15 @@ public class CharacterDataManager {
 
         CharacterDto updated = new CharacterDto(
                 current.id(), current.name(), playerNbt, worldPositions,
-                skin[0], skin[1], current.skinUsername(), current.modData()
+                skin[0], skin[1], current.skinUsername(), modData
         );
 
         CharacterSelection.setSelectedCharacter(player, updated);
-
-        // Always save to file — works for both singleplayer and server
         CharacterSelection.DATA_FILE_MANAGER.updateCharacter(updated);
+
+        if (!player.server.isDedicated()) {
+            CharacterSelection.selectedCharacter = updated;
+        }
     }
 
     public static String[] getSkinProperties(ServerPlayerEntity player) {

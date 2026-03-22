@@ -1,5 +1,8 @@
 package net.tompsen.charsel;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -13,13 +16,16 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static net.tompsen.charsel.CharacterCardRenderer.CARD_W;
@@ -34,7 +40,6 @@ public class CharacterSelectionScreen extends Screen {
     private static final Identifier TRASH_ICON = Identifier.of("characterselection", "textures/gui/trash.png");
     private static final Identifier EDIT_ICON = Identifier.of("characterselection", "textures/gui/edit.png");
     private static final Identifier HEART_ICON = Identifier.of("characterselection", "textures/gui/heart.png");
-    private static final Identifier HUNGER_ICON = Identifier.of("characterselection", "textures/gui/hunger.png");
 
     private static final Identifier[] ARMOR_ICONS = {
             Identifier.of("minecraft", "textures/item/empty_armor_slot_helmet.png"),
@@ -63,7 +68,6 @@ public class CharacterSelectionScreen extends Screen {
         int cx = width / 2 - cw / 2;
         int cy = height / 2 - ch / 2;
 
-        // Top Left Cancel/Return Button
         addDrawableChild(ButtonWidget.builder(Text.literal("<").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)),
                         btn -> this.close())
                 .dimensions(cx + 8, cy + 8, 20, 20).build());
@@ -108,7 +112,6 @@ public class CharacterSelectionScreen extends Screen {
             boolean isHovered = mouseX >= listX && mouseX <= listX + CARD_W && mouseY >= cardY && mouseY <= cardY + CharacterCardRenderer.CARD_H && mouseY >= listY && mouseY <= listY + 4 * stride;
             if (isHovered) hoveredIndex = i;
 
-            // Highlight if hovered
             CharacterCardRenderer.drawCard(ctx, textRenderer, characters.get(i), listX, cardY, isHovered);
 
             int btnY = cardY + (CharacterCardRenderer.CARD_H - 20) / 2;
@@ -144,7 +147,6 @@ public class CharacterSelectionScreen extends Screen {
 
         ItemStack tooltipItem = ItemStack.EMPTY;
 
-        // Always draw side panels if hovering over a character to preview them before joining
         if (hoveredIndex >= 0 && hoveredIndex < characters.size()) {
             CharacterDto activeChar = characters.get(hoveredIndex);
             drawLeftPanel(ctx, activeChar, cx, cy, ch, mouseX, mouseY);
@@ -185,8 +187,6 @@ public class CharacterSelectionScreen extends Screen {
                         return true;
                     }
 
-                    // --- SELECTION LOGIC ---
-                    // If they click the card itself (and not the edit/delete buttons), join the world!
                     CharacterSelection.selectedCharacter = chDto;
                     UUID uuid = MinecraftClient.getInstance().getSession().getUuidOrNull();
                     if (uuid != null) CharacterSelection.DATA_FILE_MANAGER.saveLastUsed(uuid, chDto.id());
@@ -249,7 +249,6 @@ public class CharacterSelectionScreen extends Screen {
             }
         }
 
-        // --- 1. HOTBAR ON TOP ---
         int hotbarY = py + 40;
         Text hTxt = Text.literal("H").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GREEN);
         CharacterListScreen.drawRetroText(ctx, tr, hTxt, startX - 16, hotbarY + 6, 0xFFFFFF);
@@ -263,7 +262,6 @@ public class CharacterSelectionScreen extends Screen {
             }
         }
 
-        // --- 2. MAIN INVENTORY ---
         int invY = hotbarY + slotSize + hotbarGap;
         for (int i = 0; i < 27; i++) {
             int row = i / 9;
@@ -285,7 +283,6 @@ public class CharacterSelectionScreen extends Screen {
             }
         }
 
-        // --- 3. ARMOR SLOTS ---
         int armorX = startX + 9 * (slotSize + gap) + 6;
         for (int i = 0; i < 4; i++) {
             int sy = hotbarY + i * (slotSize + 4);
@@ -301,7 +298,6 @@ public class CharacterSelectionScreen extends Screen {
             }
         }
 
-        // --- 4. DIVIDER & STATS TITLE ---
         int divY = invY + 3 * (slotSize + gap) + 8;
         ctx.fill(px + 16, divY, px + pw - 16, divY + 2, 0xFF555555);
         ctx.fill(px + 16, divY + 2, px + pw - 16, divY + 4, 0xFF222222);
@@ -309,37 +305,66 @@ public class CharacterSelectionScreen extends Screen {
         int statsY = divY + 10;
         drawScaledTitle(ctx, tr, "STATS", px + pw / 2, statsY, 1.2f);
 
-        // --- 5. STATS MATRIX ---
         float hp = nbt != null && nbt.contains("Health") ? nbt.getFloat("Health") : 20f;
-        int hunger = nbt != null && nbt.contains("foodLevel") ? nbt.getInt("foodLevel") : 20;
         int level = nbt != null && nbt.contains("XpLevel") ? nbt.getInt("XpLevel") : 0;
         float xpP = nbt != null && nbt.contains("XpP") ? nbt.getFloat("XpP") : 0f;
+        int gameMode = nbt != null ? nbt.getInt("playerGameType") : 0;
+        boolean isCreative = gameMode == 1;
 
-        int iconY = statsY + 18;
-        int statsX = px + 24;
+        int row1Y = statsY + 16;
 
-        ctx.drawTexture(HEART_ICON, statsX, iconY, 0, 0, 12, 12, 12, 12);
+        int hpX = px + 20;
+        ctx.drawTexture(HEART_ICON, hpX, row1Y, 0, 0, 12, 12, 12, 12);
         Text hpTxt = Text.literal((int)hp + "/20").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.RED);
-        CharacterListScreen.drawRetroText(ctx, tr, hpTxt, statsX + 16, iconY + 3, 0xFFFFFF);
+        CharacterListScreen.drawRetroText(ctx, tr, hpTxt, hpX + 16, row1Y + 3, 0xFFFFFF);
 
-        Text hungerTxt = Text.literal(hunger + "/20").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GOLD);
-        int hungerX = px + pw - 24 - tr.getWidth(hungerTxt);
-        ctx.drawTexture(HUNGER_ICON, hungerX - 16, iconY, 0, 0, 12, 12, 12, 12);
-        CharacterListScreen.drawRetroText(ctx, tr, hungerTxt, hungerX, iconY + 3, 0xFFFFFF);
+        int barW = 110;
+        int barX = (px + pw - 20) - barW;
+        int barY = row1Y + 4;
 
-        int barY = iconY + 22;
-        int barW = pw - 48;
-        ctx.fill(statsX, barY, statsX + barW, barY + 6, 0xFF333300);
-        ctx.fill(statsX, barY, statsX + (int)(barW * xpP), barY + 6, 0xFF80FF20);
-        Text xpTxt = Text.literal("LVL " + level).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GREEN);
-        CharacterListScreen.drawRetroText(ctx, tr, xpTxt, statsX + barW / 2 - tr.getWidth(xpTxt) / 2, barY - 1, 0xFFFFFF);
+        Text lvlTxt = Text.literal("LVL " + (isCreative ? "∞" : level)).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(isCreative ? Formatting.AQUA : Formatting.GREEN);
+        CharacterListScreen.drawRetroText(ctx, tr, lvlTxt, barX - tr.getWidth(lvlTxt) - 6, row1Y + 3, 0xFFFFFF);
 
-        String dimName = nbt != null && nbt.contains("Dimension") ? nbt.getString("Dimension").replace("minecraft:", "").toUpperCase() : "OVERWORLD";
-        Text locTxt = Text.literal("LOCATION: " + dimName).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY);
-        CharacterListScreen.drawRetroText(ctx, tr, locTxt, statsX + barW / 2 - tr.getWidth(locTxt) / 2, barY + 14, 0xFFFFFF);
+        ctx.fill(barX, barY, barX + barW, barY + 5, 0xFF000000);
+        ctx.fill(barX + 1, barY + 1, barX + barW - 1, barY + 4, 0xFF383838);
 
-        // --- 6. LATEST ADVANCEMENT ---
-        int badgeH = 36;
+        if (isCreative || xpP > 0) {
+            float progress = isCreative ? 1.0f : xpP;
+            int progressW = (int)((barW - 2) * progress);
+            if (progressW > 0) {
+                int topCol = isCreative ? 0xFFB2FFFF : 0xFFB4FF4C;
+                int midCol = isCreative ? 0xFF55FFFF : 0xFF5CE626;
+                int botCol = isCreative ? 0xFF00AAAA : 0xFF38B200;
+                ctx.fill(barX + 1, barY + 1, barX + 1 + progressW, barY + 2, topCol);
+                ctx.fill(barX + 1, barY + 2, barX + 1 + progressW, barY + 3, midCol);
+                ctx.fill(barX + 1, barY + 3, barX + 1 + progressW, barY + 4, botCol);
+            }
+        }
+
+        PlayerStatsInfo stats = getPlayerStats(c);
+        int extraY = barY + 14;
+
+        int hours = stats.playTime() / (20 * 60 * 60);
+        int minutes = (stats.playTime() / (20 * 60)) % 60;
+        String timeStr = hours > 0 ? hours + "h " + minutes + "m" : minutes + "m";
+        if (stats.playTime() == 0) timeStr = "---";
+
+        Text stat1 = Text.literal("Blocks: ").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY).append(Text.literal(stats.blocksMined() > 0 ? String.valueOf(stats.blocksMined()) : "---").formatted(Formatting.WHITE));
+        Text stat2 = Text.literal("Time: ").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY).append(Text.literal(timeStr).formatted(Formatting.WHITE));
+        Text stat3 = Text.literal("Kills: ").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY).append(Text.literal(stats.mobKills() > 0 ? String.valueOf(stats.mobKills()) : "---").formatted(Formatting.WHITE));
+        Text stat4 = Text.literal("Diamonds: ").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.GRAY).append(Text.literal(stats.diamonds() > 0 ? String.valueOf(stats.diamonds()) : "---").formatted(Formatting.WHITE));
+
+        int col1 = px + 20;
+        int col2 = px + pw / 2 + 6;
+
+        CharacterListScreen.drawRetroText(ctx, tr, stat1, col1, extraY, 0xFFFFFF);
+        CharacterListScreen.drawRetroText(ctx, tr, stat2, col2, extraY, 0xFFFFFF);
+        CharacterListScreen.drawRetroText(ctx, tr, stat3, col1, extraY + 14, 0xFFFFFF);
+        CharacterListScreen.drawRetroText(ctx, tr, stat4, col2, extraY + 14, 0xFFFFFF);
+
+        AdvancementInfo latestAdv = getLatestAdvancement(c);
+
+        int badgeH = 64;
         int badgeW = pw - 32;
         int badgeX = px + 16;
         int badgeY = py + ph - 16 - badgeH;
@@ -351,22 +376,43 @@ public class CharacterSelectionScreen extends Screen {
         ctx.fill(px + 16, div2Y, px + pw - 16, div2Y + 2, 0xFF555555);
         ctx.fill(px + 16, div2Y + 2, px + pw - 16, div2Y + 4, 0xFF222222);
 
-        ctx.fill(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH, 0xFFB8860B);
-        ctx.fill(badgeX + 2, badgeY + 2, badgeX + badgeW - 2, badgeY + badgeH - 2, 0xFF2A2A2A);
-        ctx.fillGradient(badgeX + 2, badgeY + 2, badgeX + badgeW - 2, badgeY + badgeH - 2, 0xFF404040, 0xFF222222);
+        if (latestAdv != null) {
+            ctx.fill(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH, 0xFF1A1A1A);
+            ctx.drawBorder(badgeX, badgeY, badgeW, badgeH, 0xFF555555);
 
-        ctx.getMatrices().push();
-        ctx.getMatrices().translate(badgeX + 8, badgeY + 10, 0);
-        ctx.drawItem(new ItemStack(Items.MAP), 0, 0);
-        ctx.getMatrices().pop();
+            int headerH = 24;
+            ctx.fill(badgeX + 1, badgeY + 1, badgeX + badgeW - 1, badgeY + headerH, 0xFFC08811);
+            ctx.fill(badgeX + 1, badgeY + 1, badgeX + 24, badgeY + headerH, 0xFFA0700A);
+            ctx.fill(badgeX + 24, badgeY + 1, badgeX + 25, badgeY + headerH, 0xFF555555);
 
-        Text actTxt = Text.literal("Explored " + dimName).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.YELLOW);
-        CharacterListScreen.drawRetroText(ctx, tr, actTxt, badgeX + 32, badgeY + (badgeH / 2) - 4, 0xFFFFFF);
+            ctx.getMatrices().push();
+            ctx.getMatrices().translate(badgeX + 4, badgeY + 4, 0);
+            ctx.drawItem(latestAdv.icon(), 0, 0);
+            ctx.getMatrices().pop();
+
+            Text titleTxt = Text.literal(latestAdv.title()).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.WHITE);
+            CharacterListScreen.drawRetroText(ctx, tr, titleTxt, badgeX + 28, badgeY + 8, 0xFFFFFF);
+
+            Text descText = Text.literal(latestAdv.description()).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT));
+            List<OrderedText> lines = tr.wrapLines(descText, badgeW - 8);
+
+            int lineY = badgeY + headerH + 4;
+            for (int i = 0; i < lines.size() && i < 3; i++) {
+                OrderedText line = lines.get(i);
+                ctx.drawText(tr, line, badgeX + 4 + 1, lineY + 1, 0xFF000000, false);
+                ctx.drawText(tr, line, badgeX + 4, lineY, 0xFF55FF55, false);
+                lineY += 10;
+            }
+
+        } else {
+            ctx.fill(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH, 0xFF1A1A1A);
+            ctx.drawBorder(badgeX, badgeY, badgeW, badgeH, 0xFF555555);
+            Text noAdv = Text.literal("No advancements yet").setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterListScreen.CUSTOM_FONT)).formatted(Formatting.DARK_GRAY);
+            CharacterListScreen.drawRetroText(ctx, tr, noAdv, badgeX + (badgeW - tr.getWidth(noAdv)) / 2, badgeY + (badgeH / 2) - 4, 0xFFFFFF);
+        }
 
         return hoveredItem;
     }
-
-    // --- UTILITY METHODS ---
 
     private void drawScaledTitle(DrawContext ctx, TextRenderer tr, String text, int centerX, int y, float scale) {
         ctx.getMatrices().push();
@@ -399,9 +445,155 @@ public class CharacterSelectionScreen extends Screen {
         }
     }
 
+    private PlayerStatsInfo getPlayerStats(CharacterDto c) {
+        int blocksMined = 0;
+        int mobKills = 0;
+        int diamonds = 0;
+        int playTime = 0;
+
+        NbtCompound modData = c.modData();
+        if (modData != null) {
+            String statsKey = modData.getKeys().stream().filter(k -> k.startsWith("stats/")).findFirst().orElse(null);
+            if (statsKey != null) {
+                try {
+                    String jsonString = new String(modData.getByteArray(statsKey), StandardCharsets.UTF_8);
+                    JsonObject root = JsonParser.parseString(jsonString).getAsJsonObject();
+                    if (root.has("stats")) {
+                        JsonObject stats = root.getAsJsonObject("stats");
+
+                        if (stats.has("minecraft:custom")) {
+                            JsonObject custom = stats.getAsJsonObject("minecraft:custom");
+                            if (custom.has("minecraft:mob_kills")) mobKills = custom.get("minecraft:mob_kills").getAsInt();
+                            if (custom.has("minecraft:play_time")) playTime = custom.get("minecraft:play_time").getAsInt();
+                        }
+
+                        if (stats.has("minecraft:mined")) {
+                            JsonObject mined = stats.getAsJsonObject("minecraft:mined");
+                            for (Map.Entry<String, JsonElement> entry : mined.entrySet()) {
+                                blocksMined += entry.getValue().getAsInt();
+                                if (entry.getKey().equals("minecraft:diamond_ore") || entry.getKey().equals("minecraft:deepslate_diamond_ore")) {
+                                    diamonds += entry.getValue().getAsInt();
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        return new PlayerStatsInfo(blocksMined, mobKills, diamonds, playTime);
+    }
+
+    private AdvancementInfo getLatestAdvancement(CharacterDto c) {
+        NbtCompound modData = c.modData();
+        if (modData == null || modData.isEmpty()) return null;
+
+        String advKey = modData.getKeys().stream()
+                .filter(k -> k.startsWith("advancements/"))
+                .findFirst().orElse(null);
+        if (advKey == null) return null;
+
+        try {
+            byte[] bytes = modData.getByteArray(advKey);
+            String jsonString = new String(bytes, StandardCharsets.UTF_8);
+            JsonObject json = JsonParser.parseString(jsonString).getAsJsonObject();
+
+            String latestId = null;
+            String latestTime = "";
+            String latestCriteriaKey = null;
+
+            for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
+                String id = entry.getKey();
+                if (id.equals("DataVersion") || id.contains("recipes/")) continue;
+
+                JsonObject advNode = entry.getValue().getAsJsonObject();
+                if (advNode.has("done") && advNode.get("done").getAsBoolean() && advNode.has("criteria")) {
+                    JsonObject criteria = advNode.getAsJsonObject("criteria");
+                    for (Map.Entry<String, JsonElement> crit : criteria.entrySet()) {
+                        String time = crit.getValue().getAsString();
+                        if (time.compareTo(latestTime) > 0) {
+                            latestTime = time;
+                            latestId = id;
+                            latestCriteriaKey = crit.getKey();
+                        }
+                    }
+                }
+            }
+
+            if (latestId == null) return null;
+
+            net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
+            if (client.getNetworkHandler() != null) {
+                try {
+                    Identifier advId = Identifier.tryParse(latestId);
+                    if (advId != null) {
+                        net.minecraft.advancement.AdvancementEntry advancementEntry = client.getNetworkHandler().getAdvancementHandler().getManager().get(advId).getAdvancementEntry();
+
+                        if (advancementEntry != null) {
+                            net.minecraft.advancement.Advancement advancement = advancementEntry.value();
+                            if (advancement.display().isPresent()) {
+                                net.minecraft.advancement.AdvancementDisplay display = advancement.display().get();
+                                return new AdvancementInfo(display.getTitle().getString(), display.getDescription().getString(), display.getIcon());
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            Identifier advId = Identifier.tryParse(latestId);
+            String title = "Advancement";
+            String desc = "Completed an advancement.";
+            ItemStack iconStack = new ItemStack(Items.MAP);
+
+            if (advId != null) {
+                String path = advId.getPath().replace('/', '.');
+                String titleKey = "advancements." + path + ".title";
+                String descKey = "advancements." + path + ".description";
+
+                net.minecraft.util.Language lang = net.minecraft.util.Language.getInstance();
+
+                if (lang.hasTranslation(titleKey)) {
+                    title = lang.get(titleKey);
+                    desc = lang.get(descKey);
+                } else {
+                    String name = advId.getPath();
+                    name = name.contains("/") ? name.substring(name.lastIndexOf('/') + 1) : name;
+                    name = name.replace("_", " ");
+                    String[] words = name.split(" ");
+                    StringBuilder sb = new StringBuilder();
+                    for (String w : words) {
+                        if (!w.isEmpty()) sb.append(Character.toUpperCase(w.charAt(0))).append(w.substring(1)).append(" ");
+                    }
+                    title = sb.toString().trim();
+                }
+
+                if (latestCriteriaKey != null) {
+                    Identifier itemId = Identifier.tryParse(latestCriteriaKey);
+                    if (itemId == null && !latestCriteriaKey.contains(":")) {
+                        itemId = Identifier.of("minecraft", latestCriteriaKey);
+                    }
+                    if (itemId != null) {
+                        net.minecraft.item.Item item = net.minecraft.registry.Registries.ITEM.get(itemId);
+                        if (item != Items.AIR) {
+                            iconStack = new ItemStack(item);
+                        }
+                    }
+                }
+            }
+
+            return new AdvancementInfo(title, desc, iconStack);
+
+        } catch (Exception e) {
+            CharacterSelection.LOGGER.error("[CharSel] Failed to parse advancement JSON", e);
+            return null;
+        }
+    }
+
     @Override public boolean shouldCloseOnEsc() { return true; }
     @Override public void close() {
         DummyPlayerManager.clearCache();
         client.setScreen(parent);
     }
+
+    private record PlayerStatsInfo(int blocksMined, int mobKills, int diamonds, int playTime) {}
+    private record AdvancementInfo(String title, String description, ItemStack icon) {}
 }

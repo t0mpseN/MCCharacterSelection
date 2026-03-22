@@ -45,7 +45,6 @@ public class CharacterSelection implements ModInitializer {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			playerJoinTick.put(handler.player.getUuid(), (long) server.getTicks());
 			ServerPlayerEntity player = handler.player;
-			ModDataScanner.debugWorldStructure(player);
 
 			if (server.isDedicated()) {
 				if (ServerPlayNetworking.canSend(handler, ModPresentPayload.ID)) {
@@ -61,24 +60,23 @@ public class CharacterSelection implements ModInitializer {
 			}
 		});
 
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			ServerPlayerEntity player = handler.player;
-			// Small delay to let Cobblemon write first
-			server.execute(() -> server.execute(() -> {
-				CharacterDataManager.saveCurrentCharacter(player);
-				CharacterSelection.clearSelectedCharacter(player);
-				playerJoinTick.remove(player.getUuid());
-			}));
-		});
+		//ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+		//	ServerPlayerEntity player = handler.player;
+		//	// Small delay to let Cobblemon write first
+		//	//server.execute(() -> server.execute(() -> {
+		//	CharacterDataManager.saveCurrentCharacter(player);
+		//	CharacterSelection.clearSelectedCharacter(player);
+		//	playerJoinTick.remove(player.getUuid());
+		//	//}));
+		//});
 
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
 			int tick = server.getTicks();
 
-			// Cobblemon autosaves every 6000 ticks — scan 300 ticks (15s) after to let it finish writing
-			if (tick % 6000 == 300) {
+			if (tick % 6000 == 100) {
 				for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
 					Long joinTick = CharacterSelection.playerJoinTick.get(player.getUuid());
-					if (joinTick == null || tick - joinTick < 200) continue;
+					if (joinTick == null || tick - joinTick < 6200) continue;
 
 					CharacterDataManager.saveCurrentCharacter(player);
 
