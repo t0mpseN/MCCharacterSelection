@@ -52,6 +52,14 @@ public class CharacterListScreen extends Screen {
         this.parent = parent;
     }
 
+    private float getScale() {
+        float targetW = 850.0f;
+        float targetH = 380.0f;
+        float scaleX = width / targetW;
+        float scaleY = height / targetH;
+        return Math.min(1.0f, Math.min(scaleX, scaleY));
+    }
+
     @Override
     protected void init() {
         DummyPlayerManager.invalidateDummies();
@@ -61,10 +69,14 @@ public class CharacterListScreen extends Screen {
     private void refreshList() {
         clearChildren();
 
+        float scale = getScale();
+        int vw = (int) (width / scale);
+        int vh = (int) (height / scale);
+
         int cw = CARD_W + 40;
         int ch = 4 * stride + 100;
-        int cx = width / 2 - cw / 2;
-        int cy = height / 2 - ch / 2;
+        int cx = vw / 2 - cw / 2;
+        int cy = vh / 2 - ch / 2;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("<").setStyle(net.minecraft.text.Style.EMPTY.withFont(CUSTOM_FONT)),
                         btn -> client.setScreen(parent))
@@ -80,34 +92,50 @@ public class CharacterListScreen extends Screen {
     @Override
     public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.renderBackground(ctx, mouseX, mouseY, delta);
-        int cw = CARD_W + 40, ch = 4 * stride + 100;
-        int cx = width / 2 - cw / 2, cy = height / 2 - ch / 2;
-        drawMinecraftPanel(ctx, cx, cy, cw, ch);
     }
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        super.render(ctx, mouseX, mouseY, delta);
+        renderBackground(ctx, mouseX, mouseY, delta);
+
+        float scale = getScale();
+        int smX = (int) (mouseX / scale);
+        int smY = (int) (mouseY / scale);
+        int vw = (int) (width / scale);
+        int vh = (int) (height / scale);
+
+        ctx.getMatrices().push();
+        ctx.getMatrices().scale(scale, scale, 1.0f);
 
         List<CharacterDto> characters = CharacterSelection.DATA_FILE_MANAGER.characterList;
 
         int cw = CARD_W + 40, ch = 4 * stride + 100;
-        int cx = width / 2 - cw / 2, cy = height / 2 - ch / 2;
+        int cx = vw / 2 - cw / 2, cy = vh / 2 - ch / 2;
         int listX = cx + 20, listY = cy + 40;
 
-        drawScaledTitle(ctx, textRenderer, "SELECT CHARACTER", width / 2, cy + 16, 1.2f);
+        drawMinecraftPanel(ctx, cx, cy, cw, ch);
+        drawScaledTitle(ctx, textRenderer, "SELECT CHARACTER", vw / 2, cy + 16, 1.2f);
 
         int maxScroll = Math.max(0, characters.size() * stride - (4 * stride));
         scrollAmount = MathHelper.clamp(scrollAmount, 0, maxScroll);
 
         hoveredIndex = -1;
-        ctx.enableScissor(listX, listY, listX + CARD_W, listY + 4 * stride);
+
+        // FIX: Pop the matrix, enable scissor with physical coordinates, then push back in!
+        ctx.getMatrices().pop();
+        int scX1 = (int) (listX * scale);
+        int scY1 = (int) (listY * scale);
+        int scX2 = (int) ((listX + CARD_W) * scale);
+        int scY2 = (int) ((listY + 4 * stride) * scale);
+        ctx.enableScissor(scX1, scY1, scX2, scY2);
+        ctx.getMatrices().push();
+        ctx.getMatrices().scale(scale, scale, 1.0f);
 
         for (int i = 0; i < characters.size(); i++) {
             int cardY = (int) (listY + i * stride - scrollAmount);
             if (cardY + CharacterCardRenderer.CARD_H < listY || cardY > listY + 4 * stride) continue;
 
-            boolean isHovered = mouseX >= listX && mouseX <= listX + CARD_W && mouseY >= cardY && mouseY <= cardY + CharacterCardRenderer.CARD_H && mouseY >= listY && mouseY <= listY + 4 * stride;
+            boolean isHovered = smX >= listX && smX <= listX + CARD_W && smY >= cardY && smY <= cardY + CharacterCardRenderer.CARD_H && smY >= listY && smY <= listY + 4 * stride;
             if (isHovered) hoveredIndex = i;
 
             boolean highlight = (i == hoveredIndex) || (i == selectedIndex);
@@ -116,13 +144,13 @@ public class CharacterListScreen extends Screen {
             int btnY = cardY + (CharacterCardRenderer.CARD_H - 20) / 2;
 
             int delX = listX + CARD_W - 28;
-            boolean delHovered = isHovered && mouseX >= delX && mouseX <= delX + 20 && mouseY >= btnY && mouseY <= btnY + 20;
+            boolean delHovered = isHovered && smX >= delX && smX <= delX + 20 && smY >= btnY && smY <= btnY + 20;
             ctx.fill(delX, btnY, delX + 20, btnY + 20, delHovered ? 0xFF995555 : 0xFF774444);
             ctx.drawBorder(delX, btnY, 20, 20, 0xFF222222);
             ctx.drawTexture(TRASH_ICON, delX + 2, btnY + 2, 0, 0, 16, 16, 16, 16);
 
             int editX = delX - 24;
-            boolean editHovered = isHovered && mouseX >= editX && mouseX <= editX + 20 && mouseY >= btnY && mouseY <= btnY + 20;
+            boolean editHovered = isHovered && smX >= editX && smX <= editX + 20 && smY >= btnY && smY <= btnY + 20;
             ctx.fill(editX, btnY, editX + 20, btnY + 20, editHovered ? 0xFF999999 : 0xFF777777);
             ctx.drawBorder(editX, btnY, 20, 20, 0xFF222222);
             ctx.drawTexture(EDIT_ICON, editX + 2, btnY + 2, 0, 0, 16, 16, 16, 16);
@@ -141,30 +169,43 @@ public class CharacterListScreen extends Screen {
 
         if (characters.isEmpty()) {
             Text emptyTxt = Text.literal("No characters yet").setStyle(net.minecraft.text.Style.EMPTY.withFont(CUSTOM_FONT));
-            drawRetroText(ctx, textRenderer, emptyTxt, width / 2 - textRenderer.getWidth(emptyTxt) / 2, listY + 20, 0x666666);
+            drawRetroText(ctx, textRenderer, emptyTxt, vw / 2 - textRenderer.getWidth(emptyTxt) / 2, listY + 20, 0x666666);
+        }
+
+        for (var child : this.children()) {
+            if (child instanceof net.minecraft.client.gui.Drawable drawable) {
+                drawable.render(ctx, smX, smY, delta);
+            }
         }
 
         ItemStack tooltipItem = ItemStack.EMPTY;
         int activeIndex = (hoveredIndex >= 0) ? hoveredIndex : selectedIndex;
         if (activeIndex >= 0 && activeIndex < characters.size()) {
             CharacterDto activeChar = characters.get(activeIndex);
-            drawLeftPanel(ctx, activeChar, cx, cy, ch, mouseX, mouseY);
-            tooltipItem = drawRightPanel(ctx, textRenderer, activeChar, cx + cw, cy, ch, mouseX, mouseY);
+            drawLeftPanel(ctx, activeChar, cx, cy, ch, smX, smY);
+            tooltipItem = drawRightPanel(ctx, textRenderer, activeChar, cx + cw, cy, ch, smX, smY);
         }
+
+        ctx.getMatrices().pop();
 
         if (!tooltipItem.isEmpty()) ctx.drawItemTooltip(textRenderer, tooltipItem, mouseX, mouseY);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        float scale = getScale();
+        double smX = mouseX / scale;
+        double smY = mouseY / scale;
+
         if (button == 0) {
             List<CharacterDto> characters = CharacterSelection.DATA_FILE_MANAGER.characterList;
+            int vw = (int) (width / scale), vh = (int) (height / scale);
             int cw = CARD_W + 40, ch = 4 * stride + 100;
-            int cx = width / 2 - cw / 2, cy = height / 2 - ch / 2;
+            int cx = vw / 2 - cw / 2, cy = vh / 2 - ch / 2;
             int listX = cx + 20, listY = cy + 40;
 
-            if (mouseX >= listX && mouseX <= listX + CARD_W && mouseY >= listY && mouseY <= listY + 4 * stride) {
-                double adjustedY = mouseY - listY + scrollAmount;
+            if (smX >= listX && smX <= listX + CARD_W && smY >= listY && smY <= listY + 4 * stride) {
+                double adjustedY = smY - listY + scrollAmount;
                 int clickedIndex = (int) (adjustedY / stride);
 
                 if (clickedIndex >= 0 && clickedIndex < characters.size()) {
@@ -173,7 +214,7 @@ public class CharacterListScreen extends Screen {
                     int delX = listX + CARD_W - 28, editX = delX - 24;
                     CharacterDto chDto = characters.get(clickedIndex);
 
-                    if (mouseX >= delX && mouseX <= delX + 20 && mouseY >= btnY && mouseY <= btnY + 20) {
+                    if (smX >= delX && smX <= delX + 20 && smY >= btnY && smY <= btnY + 20) {
                         client.setScreen(new ConfirmDeleteScreen(this, chDto.name(), () -> {
                             CharacterSelection.DATA_FILE_MANAGER.deleteCharacter(chDto.id());
                             selectedIndex = -1;
@@ -182,7 +223,7 @@ public class CharacterListScreen extends Screen {
                         return true;
                     }
 
-                    if (mouseX >= editX && mouseX <= editX + 20 && mouseY >= btnY && mouseY <= btnY + 20) {
+                    if (smX >= editX && smX <= editX + 20 && smY >= btnY && smY <= btnY + 20) {
                         client.setScreen(new CharacterEditScreen(this, chDto, this::refreshList));
                         return true;
                     }
@@ -192,13 +233,25 @@ public class CharacterListScreen extends Screen {
                 }
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(smX, smY, button);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         scrollAmount -= verticalAmount * (stride / 2.0);
         return true;
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        float scale = getScale();
+        return super.mouseReleased(mouseX / scale, mouseY / scale, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        float scale = getScale();
+        return super.mouseDragged(mouseX / scale, mouseY / scale, button, deltaX / scale, deltaY / scale);
     }
 
     private void drawLeftPanel(DrawContext ctx, CharacterDto c, int centerPanelX, int centerPanelY, int centerHeight, int mouseX, int mouseY) {
@@ -245,7 +298,6 @@ public class CharacterListScreen extends Screen {
             }
         }
 
-        // --- 1. HOTBAR ON TOP ---
         int hotbarY = py + 40;
         Text hTxt = Text.literal("H").setStyle(net.minecraft.text.Style.EMPTY.withFont(CUSTOM_FONT)).formatted(Formatting.GREEN);
         drawRetroText(ctx, tr, hTxt, startX - 16, hotbarY + 6, 0xFFFFFF);
@@ -259,7 +311,6 @@ public class CharacterListScreen extends Screen {
             }
         }
 
-        // --- 2. MAIN INVENTORY ---
         int invY = hotbarY + slotSize + hotbarGap;
         for (int i = 0; i < 27; i++) {
             int row = i / 9;
@@ -281,7 +332,6 @@ public class CharacterListScreen extends Screen {
             }
         }
 
-        // --- 3. ARMOR SLOTS ---
         int armorX = startX + 9 * (slotSize + gap) + 6;
         for (int i = 0; i < 4; i++) {
             int sy = hotbarY + i * (slotSize + 4);
@@ -297,12 +347,10 @@ public class CharacterListScreen extends Screen {
             }
         }
 
-        // --- 4. DIVIDER ---
         int divY = invY + 3 * (slotSize + gap) + 8;
         ctx.fill(px + 16, divY, px + pw - 16, divY + 2, 0xFF555555);
         ctx.fill(px + 16, divY + 2, px + pw - 16, divY + 4, 0xFF222222);
 
-        // --- 5. STATS MATRIX ---
         int statsY = divY + 10;
         drawScaledTitle(ctx, tr, "STATS", px + pw / 2, statsY, 1.2f);
 
@@ -314,16 +362,14 @@ public class CharacterListScreen extends Screen {
 
         int row1Y = statsY + 16;
 
-        // Health (Left aligned)
         int hpX = px + 20;
         ctx.drawTexture(HEART_ICON, hpX, row1Y, 0, 0, 12, 12, 12, 12);
         Text hpTxt = Text.literal((int)hp + "/20").setStyle(net.minecraft.text.Style.EMPTY.withFont(CUSTOM_FONT)).formatted(Formatting.RED);
         drawRetroText(ctx, tr, hpTxt, hpX + 16, row1Y + 3, 0xFFFFFF);
 
-        // XP Bar (Right aligned to fill the remaining width)
         int barW = 110;
         int barX = (px + pw - 20) - barW;
-        int barY = row1Y + 4; // Center perfectly with the heart icon
+        int barY = row1Y + 4;
 
         Text lvlTxt = Text.literal("LVL " + (isCreative ? "∞" : level)).setStyle(net.minecraft.text.Style.EMPTY.withFont(CUSTOM_FONT)).formatted(isCreative ? Formatting.AQUA : Formatting.GREEN);
         drawRetroText(ctx, tr, lvlTxt, barX - tr.getWidth(lvlTxt) - 6, row1Y + 3, 0xFFFFFF);
@@ -344,7 +390,6 @@ public class CharacterListScreen extends Screen {
             }
         }
 
-        // RPG Extra Stats Grid
         PlayerStatsInfo stats = getPlayerStats(c);
         int extraY = barY + 14;
 
@@ -366,7 +411,7 @@ public class CharacterListScreen extends Screen {
         drawRetroText(ctx, tr, stat3, col1, extraY + 14, 0xFFFFFF);
         drawRetroText(ctx, tr, stat4, col2, extraY + 14, 0xFFFFFF);
 
-        // --- 6. LATEST ADVANCEMENT ---
+
         AdvancementInfo latestAdv = getLatestAdvancement(c);
 
         int badgeH = 64;
@@ -418,8 +463,6 @@ public class CharacterListScreen extends Screen {
 
         return hoveredItem;
     }
-
-    // --- UTILITY METHODS ---
 
     public static void drawRetroText(DrawContext ctx, TextRenderer tr, Text text, int x, int y, int color) {
         Text shadowText = Text.literal(text.getString()).setStyle(net.minecraft.text.Style.EMPTY.withFont(CUSTOM_FONT));
