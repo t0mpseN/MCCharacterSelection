@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "net.tompsen.nexuscharacters.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"PlayerManagerMixin",
+		"PlayerManagerAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

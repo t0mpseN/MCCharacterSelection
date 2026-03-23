@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"id": "characterselection",
+	"id": "nexuscharacters",
 	"version": "${version}",
-	"name": "CharacterSelection",
+	"name": "NexusCharacters",
 	"description": "This is an example description! Tell everyone what your mod is about!",
 	"authors": [
 		"Me!"
@@ -12,22 +12,22 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/characterselection/icon.png",
+	"icon": "assets/nexuscharacters/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"net.tompsen.charsel.CharacterSelection"
+			"net.tompsen.nexuscharacters.NexusCharacters"
 		],
 		"client": [
-			"net.tompsen.charsel.CharacterSelectionClient"
+			"net.tompsen.nexuscharacters.NexusCharactersClient"
 		],
 		"fabric-datagen": [
 		]
 	},
 	"mixins": [
-		"characterselection.mixins.json",
+		"nexuscharacters.mixins.json",
 		{
-			"config": "characterselection.client.mixins.json",
+			"config": "nexuscharacters.client.mixins.json",
 			"environment": "client"
 		}
 	],

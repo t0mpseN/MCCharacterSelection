@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "net.tompsen.nexuscharacters.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"TitleScreenMixin",
+		"WorldEntryMixin",
+		"CreateWorldScreenMixin",
+		"CreateWorldScreenAccessor",
+		"LivingEntityRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
