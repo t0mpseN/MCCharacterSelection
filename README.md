@@ -84,12 +84,12 @@ Take your characters online! Nexus Characters is fully compatible with dedicated
 2. Drop the `.jar` file into your Minecraft `mods` folder (same thing for servers)
 3. Launch the game and access the new **"Characters"** menu from the title screen
 
-> **Note:** Make sure you are using Fabric as your modloader and Minecraft 1.21.1 required by the specific release.
+> **Note:** Make sure you are using Fabric as your mod loader and Minecraft 1.21.1.
 
 
 ## 🤝 Feedback and Support
 
-Found a bug or have a feature request? Please open an issue on the [GitHub Issues tab](https://github.com/t0mpseN/NexusCharacters/issues) or contact pedrotbandel@gmail.com. I am always looking for ways to improve the study experience!
+Found a bug or have a feature request? Please open an issue on the [GitHub Issues tab](https://github.com/t0mpseN/NexusCharacters/issues) or send me an [email](mailto:pedrotbandel@gmail.com). I am always looking for ways to improve the study experience!
 
 
 ## 📄 License
