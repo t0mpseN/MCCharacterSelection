@@ -2,16 +2,16 @@
 	"schemaVersion": 1,
 	"id": "nexuscharacters",
 	"version": "${version}",
-	"name": "NexusCharacters",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "Nexus Characters",
+	"description": "A Minecraft mod that lets you play with multiple characters in multiple worlds, while keeping each character's individual progress between them. Works both in singleplayer and multiplayer (if the server has this mod installed). ",
 	"authors": [
-		"Me!"
+		"t0mpseN"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://ko-fi.com/pedrotompsen",
+		"sources": "https://github.com/t0mpseN/NexusCharacters"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/nexuscharacters/icon.png",
 	"environment": "*",
 	"entrypoints": {
