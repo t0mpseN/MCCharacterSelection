@@ -2,11 +2,12 @@
   <img src="src/main/resources/assets/nexuscharacters/icon-round.png" alt="NexusCharactersIcon" width="360">
   <br></br> 
 
-[![Release](https://img.shields.io/github/v/release/t0mpseN/NexusCharacters?label=Latest%20Release&color=blue)](#)
-[![ModLoader](https://img.shields.io/badge/ModLoader-Fabric-lightgrey)](#)
+  <img width="517" height="108" alt="4" src="https://github.com/user-attachments/assets/891d0091-3a96-4b7e-ae58-27b46c3ee65f" />
+  <br></br>
+  
+  [![Release](https://img.shields.io/github/v/release/t0mpseN/NexusCharacters?label=Latest%20Release&color=blue)](#)
+  [![ModLoader](https://img.shields.io/badge/ModLoader-Fabric-lightgrey)](#)
 </div>
-
-# 🪐 Nexus Characters — Cross-World Progression
 
 > [!NOTE]
 > 🚧 **WORK IN PROGRESS:** Nexus is currently in active, early development. As a solo passion project, please expect to encounter some bugs, rough edges, and incomplete features. Your patience and feedback are incredibly appreciated as I continue to refine the mod!
@@ -37,9 +38,9 @@ Instead of starting from scratch every time you create a new world, Nexus Charac
 
 <br/>
 
-## ✨ Core Features
+# ✨ Core Features
 
-### 👤 Character Creation
+## 👤 Character Creation
 Create unique identities for your different playthroughs. When making a new character, you have complete control over their identity and playstyle:
 
 - **Custom Naming:** Give your character a unique identity.
@@ -50,7 +51,7 @@ Create unique identities for your different playthroughs. When making a new char
 
 <br/>
 
-### 🌉 Cross-World Progression
+## 🌉 Cross-World Progression
 Your character's journey doesn't end when you leave a world. Everything that defines your character travels with them:
 
 - Health and hunger stats
@@ -62,7 +63,7 @@ Your character's journey doesn't end when you leave a world. Everything that def
 
 <br/>
 
-### <a id="hardcore-characters"></a>⚠️ Hardcore Characters
+## <a id="hardcore-characters"></a>⚠️ Hardcore Characters
 
 Love the thrill of Hardcore but hate losing a beautiful world you spent hours building? Nexus Characters introduces Hardcore Characters.
 
@@ -73,19 +74,19 @@ Love the thrill of Hardcore but hate losing a beautiful world you spent hours bu
 
 <br/>
 
-## 🚀 Extended Capabilities
+# 🚀 Extended Capabilities
 
-### Deep Mod Compatibility
+## Deep Mod Compatibility
 
 Nexus Characters doesn't just save vanilla data. It integrates deeply with your favorite mods to ensure that external progression is saved directly to your character. For example, if you are playing with Cobblemon, your party of Pokémon and your PC boxes will travel with your character across dimensions and worlds!
 
-### Multiplayer Support
+## Multiplayer Support
 
 Take your characters online! Nexus Characters is fully compatible with dedicated servers. Server owners can install the mod to allow players to bring their cross-world characters into the community, or restrict servers to specific character types.
 
 <br/>
 
-## <a id="installation-setup"></a>🛠️ Installation & Setup
+# <a id="installation-setup"></a>🛠️ Installation & Setup
 > [!IMPORTANT]
 > **Note:** Make sure you are using Fabric as your mod loader and Minecraft 1.21.1.
 1. Download the latest version of **Nexus Characters** from the [releases](https://github.com/t0mpseN/NexusCharacters/releases) page
@@ -94,12 +95,23 @@ Take your characters online! Nexus Characters is fully compatible with dedicated
 
 <br/>
 
-## 🤝 Feedback and Support
+# 🤝 Feedback and Support
 
-Found a bug or have a feature request? Please open an issue on the [GitHub Issues tab](https://github.com/t0mpseN/NexusCharacters/issues) or send me an [email](mailto:pedrotbandel@gmail.com). I am always looking for ways to improve the user experience!
+Found a bug or have a feature request? Please open an issue on the [GitHub Issues tab](https://github.com/t0mpseN/NexusCharacters/issues) or send me an [email](mailto:pedrotbandel@gmail.com). I am always looking for ways to improve the user experience! Also if you wish to support my work, I'll happily take a coffee!
+<div align=center>
+  <p>
+    <a href="mailto:pedrotbandel@gmail.com"><img src="https://img.shields.io/badge/pedrotbandel@gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white" /></a>
+    &nbsp;
+    <a href="https://discordapp.com/users/239538765356466176"><img src="https://img.shields.io/badge/t0mpseN-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
+  </p>
+
+  <a href="https://ko-fi.com/pedrotompsen" target="_blank">
+    <img width="240" height="50" alt="image" src="https://storage.ko-fi.com/cdn/brandasset/v2/support_me_on_kofi_dark.png" />
+  </a>
+</div>
 
 <br/>
 
-## 📄 License
+# 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
