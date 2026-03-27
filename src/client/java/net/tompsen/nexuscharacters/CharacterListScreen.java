@@ -318,7 +318,7 @@ public class CharacterListScreen extends Screen {
 
         ItemStack[] invItems = new ItemStack[104];
         Arrays.fill(invItems, ItemStack.EMPTY);
-        NbtCompound nbt = c.playerNbt();
+        NbtCompound nbt = VaultManager.readPlayerNbt(c.id());
         if (nbt != null && nbt.contains("Inventory")) {
             NbtList inventory = nbt.getList("Inventory", 10);
             for (int i = 0; i < inventory.size(); i++) {
@@ -505,8 +505,11 @@ public class CharacterListScreen extends Screen {
     }
 
     @Override public boolean shouldCloseOnEsc() { return true; }
-    @Override public void close() {
+
+    @Override
+    public void close() {
         DummyPlayerManager.clearCache();
+        VaultManager.invalidateAll();   // ← add this
         client.setScreen(parent);
     }
 }

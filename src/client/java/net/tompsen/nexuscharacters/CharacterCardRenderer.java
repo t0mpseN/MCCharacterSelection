@@ -32,9 +32,8 @@ public class CharacterCardRenderer {
         CharacterUiHelper.drawRetroText(ctx, tr, nameTxt, x + 56, y + 14, 0xFFFFFF);
 
         // Game Mode Display
-        int gameMode = c.playerNbt().isEmpty() ? 0 : c.playerNbt().getInt("playerGameType");
-        boolean isHardcore = !c.playerNbt().isEmpty() && c.playerNbt().getBoolean("hardcore");
-        
+        int gameMode    = c.gameMode();
+        boolean isHardcore = c.hardcore();
         String classStr;
         Formatting color;
         
@@ -55,7 +54,7 @@ public class CharacterCardRenderer {
 
         // Level (Don't show for Creative/Spectator)
         if (gameMode != 1 && gameMode != 3) {
-            int level = c.playerNbt().isEmpty() ? 0 : c.playerNbt().getInt("XpLevel");
+            int level = VaultManager.readPlayerNbt(c.id()).getInt("XpLevel");
             Text lvlTxt = Text.literal("LVL " + level).setStyle(net.minecraft.text.Style.EMPTY.withFont(CharacterUiHelper.CUSTOM_FONT)).formatted(Formatting.YELLOW);
             CharacterUiHelper.drawRetroText(ctx, tr, lvlTxt, x + 56, y + 30, 0xFFFFFF);
         }

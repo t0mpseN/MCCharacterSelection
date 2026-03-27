@@ -27,9 +27,8 @@ public class CharacterEditScreen extends Screen {
         this.character = character;
         this.onSave = onSave;
         
-        int gmId = character.playerNbt().getInt("playerGameType");
-        this.selectedGameMode = GameMode.byId(gmId);
-        this.isHardcore = character.playerNbt().getBoolean("hardcore");
+        this.selectedGameMode = GameMode.byId(character.gameMode());
+        this.isHardcore = character.hardcore();
     }
 
     private float getScale() {
@@ -116,17 +115,15 @@ public class CharacterEditScreen extends Screen {
     }
 
     private void save(String name, String skinUsername, String skinValue, String skinSignature) {
-        net.minecraft.nbt.NbtCompound updatedNbt = character.playerNbt().copy();
-        updatedNbt.putInt("playerGameType", selectedGameMode.getId());
-        updatedNbt.putBoolean("hardcore", isHardcore);
-
         CharacterDto updated = new CharacterDto(
-                character.id(), name, updatedNbt, character.worldPositions(),
+                character.id(), name,
                 skinValue  != null ? skinValue  : "",
                 skinSignature != null ? skinSignature : "",
-                skinUsername, character.modData()
+                skinUsername,
+                selectedGameMode.getId(), isHardcore
         );
         NexusCharacters.DATA_FILE_MANAGER.updateCharacter(updated);
+        VaultManager.invalidateCache(updated.id());
         DummyPlayerManager.invalidateDummies();
         onSave.run();
         client.setScreen(parent);

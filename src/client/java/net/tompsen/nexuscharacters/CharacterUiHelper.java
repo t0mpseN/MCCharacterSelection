@@ -147,153 +147,106 @@ public class CharacterUiHelper {
     }
 
     public static PlayerStatsInfo getPlayerStats(CharacterDto c) {
-        int blocksMined = 0;
-        int mobKills = 0;
-        int diamonds = 0;
-        int playTime = 0;
+        int blocksMined = 0, mobKills = 0, diamonds = 0, playTime = 0;
 
-        NbtCompound modData = c.modData();
-        if (modData != null) {
-            for (String key : modData.getKeys()) {
-                // Handle both world-prefixed ("worldId::relativizedPath") and global keys
-                String path = key.contains("::") ? key.substring(key.indexOf("::") + 2) : key;
-                if (!path.startsWith("stats/")) continue;
-
-                try {
-                    String jsonString = new String(modData.getByteArray(key), StandardCharsets.UTF_8);
-                    JsonObject root = JsonParser.parseString(jsonString).getAsJsonObject();
-                    if (root.has("stats")) {
-                        JsonObject stats = root.getAsJsonObject("stats");
-
-                        if (stats.has("minecraft:custom")) {
-                            JsonObject custom = stats.getAsJsonObject("minecraft:custom");
-                            if (custom.has("minecraft:mob_kills")) mobKills += custom.get("minecraft:mob_kills").getAsInt();
-                            if (custom.has("minecraft:play_time")) playTime += custom.get("minecraft:play_time").getAsInt();
-                        }
-
-                        if (stats.has("minecraft:mined")) {
-                            JsonObject mined = stats.getAsJsonObject("minecraft:mined");
-                            for (Map.Entry<String, JsonElement> entry : mined.entrySet()) {
-                                blocksMined += entry.getValue().getAsInt();
-                                if (entry.getKey().equals("minecraft:diamond_ore") || entry.getKey().equals("minecraft:deepslate_diamond_ore")) {
-                                    diamonds += entry.getValue().getAsInt();
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-        }
-        return new PlayerStatsInfo(blocksMined, mobKills, diamonds, playTime);
-    }
-
-    public static AdvancementInfo getLatestAdvancement(CharacterDto c) {
-        NbtCompound modData = c.modData();
-        if (modData == null || modData.isEmpty()) return null;
-
-        String latestId = null;
-        String latestTime = "";
-        String latestAdvKey = null;
-
-        // 1. Find the absolute latest advancement ID and its source file
-        for (String key : modData.getKeys()) {
-            if (key.startsWith("_nexuscharacters:")) continue;
-            String path = key.contains("::") ? key.substring(key.indexOf("::") + 2) : key;
-            if (!path.startsWith("advancements/")) continue;
-
+        String statsJson = VaultManager.readStatsJson(c.id());
+        if (statsJson != null) {
             try {
-                byte[] bytes = modData.getByteArray(key);
-                String jsonString = new String(bytes, StandardCharsets.UTF_8);
-                JsonObject json = JsonParser.parseString(jsonString).getAsJsonObject();
-
-                for (Map.Entry<String, JsonElement> entry : json.entrySet()) {
-                    String id = entry.getKey();
-                    if (id.equals("DataVersion") || id.contains("recipes/")) continue;
-
-                    JsonObject advNode = entry.getValue().getAsJsonObject();
-                    if (advNode.has("done") && advNode.get("done").getAsBoolean() && advNode.has("criteria")) {
-                        JsonObject criteria = advNode.getAsJsonObject("criteria");
-                        for (Map.Entry<String, JsonElement> crit : criteria.entrySet()) {
-                            String time = crit.getValue().getAsString();
-                            if (time.compareTo(latestTime) > 0) {
-                                latestTime = time;
-                                latestId = id;
-                                latestAdvKey = key;
-                            }
+                JsonObject root = JsonParser.parseString(statsJson).getAsJsonObject();
+                if (root.has("stats")) {
+                    JsonObject stats = root.getAsJsonObject("stats");
+                    if (stats.has("minecraft:custom")) {
+                        JsonObject custom = stats.getAsJsonObject("minecraft:custom");
+                        if (custom.has("minecraft:mob_kills")) mobKills  = custom.get("minecraft:mob_kills").getAsInt();
+                        if (custom.has("minecraft:play_time")) playTime  = custom.get("minecraft:play_time").getAsInt();
+                    }
+                    if (stats.has("minecraft:mined")) {
+                        for (var entry : stats.getAsJsonObject("minecraft:mined").entrySet()) {
+                            blocksMined += entry.getValue().getAsInt();
+                            if (entry.getKey().equals("minecraft:diamond_ore")
+                                    || entry.getKey().equals("minecraft:deepslate_diamond_ore"))
+                                diamonds += entry.getValue().getAsInt();
                         }
                     }
                 }
             } catch (Exception ignored) {}
         }
+        return new PlayerStatsInfo(blocksMined, mobKills, diamonds, playTime);
+    }
+
+    public static AdvancementInfo getLatestAdvancement(CharacterDto c) {
+        String advJson = VaultManager.readAdvancementsJson(c.id());
+        if (advJson == null) return null;
+
+        String latestId = null;
+        String latestTime = "";
+        String latestCriteriaKey = null;
+
+        try {
+            JsonObject json = JsonParser.parseString(advJson).getAsJsonObject();
+            for (var entry : json.entrySet()) {
+                String id = entry.getKey();
+                if (id.equals("DataVersion") || id.contains("recipes/")) continue;
+                JsonObject node = entry.getValue().getAsJsonObject();
+                if (node.has("done") && node.get("done").getAsBoolean() && node.has("criteria")) {
+                    for (var crit : node.getAsJsonObject("criteria").entrySet()) {
+                        String time = crit.getValue().getAsString();
+                        if (time.compareTo(latestTime) > 0) {
+                            latestTime = time;
+                            latestId = id;
+                            latestCriteriaKey = crit.getKey();
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) { return null; }
 
         if (latestId == null) return null;
 
-        // 2. Try to use the cached display info (Icons, Titles, etc.)
-        NbtCompound displayCache = modData.getCompound("_nexuscharacters:adv_display_cache");
-        if (displayCache.contains(latestId)) {
-            NbtCompound info = displayCache.getCompound(latestId);
-            String title = info.getString("title");
-            String desc = info.getString("desc");
-            ItemStack iconStack = ItemStack.fromNbtOrEmpty(DummyWorldManager.getRegistries(), info.getCompound("icon"));
-            if (!iconStack.isEmpty()) {
-                return new AdvancementInfo(title, desc, iconStack);
-            }
-        }
-
-        // 3. Fallback logic if not in cache (e.g., first join or cache missing)
         try {
-            // Re-find criteria key for the fallback icon
-            String latestCriteriaKey = null;
-            byte[] bytes = modData.getByteArray(latestAdvKey);
-            JsonObject json = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
-            JsonObject advNode = json.getAsJsonObject(latestId);
-            if (advNode != null && advNode.has("criteria")) {
-                JsonObject criteria = advNode.getAsJsonObject("criteria");
-                String maxTime = "";
-                for (Map.Entry<String, JsonElement> crit : criteria.entrySet()) {
-                    String t = crit.getValue().getAsString();
-                    if (t.compareTo(maxTime) > 0) {
-                        maxTime = t;
-                        latestCriteriaKey = crit.getKey();
-                    }
-                }
-            }
-
             MinecraftClient client = MinecraftClient.getInstance();
-            if (client.getNetworkHandler() != null) {
-                Identifier advId = Identifier.tryParse(latestId);
-                if (advId != null) {
-                    net.minecraft.advancement.AdvancementEntry entry = client.getNetworkHandler().getAdvancementHandler().getManager().get(advId).getAdvancementEntry();
-                    if (entry != null && entry.value().display().isPresent()) {
-                        net.minecraft.advancement.AdvancementDisplay display = entry.value().display().get();
-                        return new AdvancementInfo(display.getTitle().getString(), display.getDescription().getString(), display.getIcon());
-                    }
+            Identifier advId = Identifier.tryParse(latestId);
+
+            // First try: live advancement manager (works while in-game)
+            if (client.getNetworkHandler() != null && advId != null) {
+                var entry = client.getNetworkHandler().getAdvancementHandler().getManager().get(advId);
+                if (entry != null && entry.getAdvancementEntry().value().display().isPresent()) {
+                    net.minecraft.advancement.AdvancementDisplay display = entry.getAdvancementEntry().value().display().get();
+                    return new AdvancementInfo(display.getTitle().getString(), display.getDescription().getString(), display.getIcon());
                 }
             }
 
-            Identifier advId = Identifier.tryParse(latestId);
-            String title = "Advancement";
-            String desc = "Completed an advancement.";
+            // Fallback: language file lookup (works for vanilla advancements when not in-game)
+            String title = latestId; // use raw id as last resort instead of "Advancement"
+            String desc = "";
             ItemStack iconStack = new ItemStack(Items.MAP);
 
             if (advId != null) {
-                String path = advId.getPath().replace('/', '.');
-                String titleKey = "advancements." + path + ".title";
-                String descKey = "advancements." + path + ".description";
                 net.minecraft.util.Language lang = net.minecraft.util.Language.getInstance();
 
-                if (lang.hasTranslation(titleKey)) {
-                    title = lang.get(titleKey);
-                    desc = lang.get(descKey);
-                }
+                // Vanilla key format: advancements.<namespace>.<path_dots>.title
+                // e.g. minecraft:story/mine_stone → advancements.story.mine_stone.title
+                String pathDots = advId.getPath().replace('/', '.');
+                String vanillaTitleKey = "advancements." + pathDots + ".title";
+                String vanillaDescKey  = "advancements." + pathDots + ".description";
 
-                if (latestCriteriaKey != null) {
-                    Identifier itemId = Identifier.tryParse(latestCriteriaKey);
-                    if (itemId == null && !latestCriteriaKey.contains(":")) itemId = Identifier.of("minecraft", latestCriteriaKey);
-                    if (itemId != null) {
-                        net.minecraft.item.Item item = net.minecraft.registry.Registries.ITEM.get(itemId);
-                        if (item != Items.AIR) iconStack = new ItemStack(item);
-                    }
+                // Mod key format may also include namespace:
+                // e.g. cobblemon:cobblemon/starter → advancements.cobblemon.cobblemon.starter.title
+                String nsDots = advId.getNamespace() + "." + pathDots;
+                String modTitleKey = "advancements." + nsDots + ".title";
+                String modDescKey  = "advancements." + nsDots + ".description";
+
+                if (lang.hasTranslation(vanillaTitleKey)) {
+                    title = lang.get(vanillaTitleKey);
+                    desc  = lang.hasTranslation(vanillaDescKey) ? lang.get(vanillaDescKey) : "";
+                } else if (lang.hasTranslation(modTitleKey)) {
+                    title = lang.get(modTitleKey);
+                    desc  = lang.hasTranslation(modDescKey) ? lang.get(modDescKey) : "";
+                } else {
+                    // Format the raw id nicely: "cobblemon:cobblemon/catch_starter" → "Cobblemon: Catch Starter"
+                    String rawPath = advId.getPath().substring(advId.getPath().lastIndexOf('/') + 1);
+                    title = rawPath.replace('_', ' ');
+                    title = Character.toUpperCase(title.charAt(0)) + title.substring(1);
                 }
             }
             return new AdvancementInfo(title, desc, iconStack);

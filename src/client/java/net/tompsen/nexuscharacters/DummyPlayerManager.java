@@ -8,6 +8,7 @@ import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.FilledMapItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
@@ -114,7 +115,7 @@ public class DummyPlayerManager {
         }
 
         // 3. Equipar itens do inventário
-        NbtCompound playerNbt = character.playerNbt();
+        NbtCompound playerNbt = VaultManager.readPlayerNbt(character.id());
         if (playerNbt != null && playerNbt.contains("Inventory")) {
             NbtList inventory = playerNbt.getList("Inventory", 10);
             int selectedSlot = playerNbt.contains("SelectedItemSlot")
@@ -131,7 +132,12 @@ public class DummyPlayerManager {
                     else if (slot == 102) dummy.equipStack(EquipmentSlot.CHEST, stack);
                     else if (slot == 103) dummy.equipStack(EquipmentSlot.HEAD, stack);
                     else if (slot == 150) dummy.equipStack(EquipmentSlot.OFFHAND, stack); // -106 & 0xFF = 150
-                    if (slot == selectedSlot) dummy.equipStack(EquipmentSlot.MAINHAND, stack);
+                    // Skip world-dependent items in mainhand (maps, compasses, clocks)
+                    // — their renderers call world.getMapState() / world.getTime() which NPE
+                    // because the dummy world has no real chunk data / map storage.
+                    if (slot == selectedSlot && !isWorldDependentItem(stack)) {
+                        dummy.equipStack(EquipmentSlot.MAINHAND, stack);
+                    }
                 }
             }
         }
@@ -150,6 +156,14 @@ public class DummyPlayerManager {
 
         DUMMY_CACHE.put(character.id(), dummy);
         return dummy;
+    }
+
+    /** Items whose renderers require a real world (map state, time, position). */
+    private static boolean isWorldDependentItem(ItemStack stack) {
+        return stack.getItem() instanceof FilledMapItem
+                || stack.isOf(net.minecraft.item.Items.COMPASS)
+                || stack.isOf(net.minecraft.item.Items.RECOVERY_COMPASS)
+                || stack.isOf(net.minecraft.item.Items.CLOCK);
     }
 
     public static SkinTextures getSkinTextures(CharacterDto character) {

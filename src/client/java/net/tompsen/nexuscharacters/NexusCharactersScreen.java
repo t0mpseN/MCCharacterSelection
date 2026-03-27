@@ -299,7 +299,7 @@ public class NexusCharactersScreen extends Screen {
 
         ItemStack[] invItems = new ItemStack[104];
         Arrays.fill(invItems, ItemStack.EMPTY);
-        NbtCompound nbt = c.playerNbt();
+        NbtCompound nbt = VaultManager.readPlayerNbt(c.id());
         if (nbt != null && nbt.contains("Inventory")) {
             NbtList inventory = nbt.getList("Inventory", 10);
             for (int i = 0; i < inventory.size(); i++) {
@@ -502,12 +502,8 @@ public class NexusCharactersScreen extends Screen {
 
     @Override
     public void close() {
-        if (parent != null) {
-            this.isSwitchingScreen = true;
-            DummyPlayerManager.clearCache();
-            client.setScreen(parent);
-        } else {
-            this.removed();
-        }
+        DummyPlayerManager.clearCache();
+        VaultManager.invalidateAll();   // ← add this
+        client.setScreen(parent);
     }
 }

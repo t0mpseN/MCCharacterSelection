@@ -2,37 +2,42 @@ package net.tompsen.nexuscharacters.mixin;
 
 import net.minecraft.advancement.PlayerAdvancementTracker;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.WorldSavePath;
 import net.tompsen.nexuscharacters.CharacterDataManager;
 import net.tompsen.nexuscharacters.NexusCharacters;
-import net.tompsen.nexuscharacters.ModDataScanner;
+import net.tompsen.nexuscharacters.VaultManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 
 @Mixin(PlayerManager.class)
 public class PlayerManagerMixin {
 
-    @Inject(method = "remove", at = @At("HEAD"))
-    private void beforeRemove(ServerPlayerEntity player, CallbackInfo ci) {
-        // Force trackers save so CharacterDataManager can scan them
-        player.getAdvancementTracker().save();
-        player.getStatHandler().save();
+    @Inject(method = "remove", at = @At("TAIL"))
+    private void afterRemove(ServerPlayerEntity player, CallbackInfo ci) {
+        UUID uuid = player.getUuid();
 
-        // Runs on Server thread BEFORE player is removed - ensures data is saved to our character file
-        // We pass 'true' to ensure a final full save of advancements/stats/mods
-        CharacterDataManager.saveCurrentCharacter(player, true);
+        // Skip vault save if this removal is part of a NexusCharacters-triggered respawn.
+        // The respawn is used to reload mod data from disk — not a real disconnect.
+        if (NexusCharacters.respawningPlayers.contains(uuid)) {
+            NexusCharacters.LOGGER.info("[Nexus] afterRemove: skipping vault save for {} — nexus-triggered respawn.", player.getName().getString());
+            return;
+        }
+
+        NexusCharacters.LOGGER.info("[Nexus] afterRemove: saving character data for {} (uuid={})", player.getName().getString(), uuid);
+        // Runs AFTER PlayerManager.remove() which flushes playerdata/advancements/stats to disk.
+        CharacterDataManager.saveCurrentCharacter(player);
 
         NexusCharacters.clearSelectedCharacter(player);
-        NexusCharacters.playerJoinTick.remove(player.getUuid());
-        // Fix bug 1: reset selectedCharacter so picker shows again next world
+        NexusCharacters.playerJoinTick.remove(uuid);
         if (!player.server.isDedicated()) {
             NexusCharacters.selectedCharacter = null;
         }
@@ -63,45 +68,43 @@ public class PlayerManagerMixin {
 
     private void prepareCharacterData(ServerPlayerEntity player) {
         Map<UUID, PlayerAdvancementTracker> trackers = ((PlayerManagerAccessor)(Object)this).getAdvancementTrackers();
-        // If advancement tracker is already created, we likely already ran this logic via getStatsHandler or another call
-        if (trackers.containsKey(player.getUuid())) return;
+        if (trackers.containsKey(player.getUuid())) {
+            NexusCharacters.LOGGER.debug("[Nexus] prepareCharacterData: tracker already exists for {} — skipping.", player.getName().getString());
+            return;
+        }
 
-        // Use selectedCharacter if set (Singleplayer/Integrated), otherwise fallback to last used
+        // If already selected (e.g. during a NexusCharacters-triggered respawn on dedicated),
+        // the vault is already in the world dir — nothing to do here.
+        if (NexusCharacters.getSelectedCharacter(player) != null) {
+            NexusCharacters.LOGGER.debug("[Nexus] prepareCharacterData: character already selected for {} — skipping.", player.getName().getString());
+            return;
+        }
+
         UUID charId = NexusCharacters.selectedCharacter != null
                 ? NexusCharacters.selectedCharacter.id()
                 : NexusCharacters.DATA_FILE_MANAGER.getLastUsed(player.getUuid());
 
+        NexusCharacters.LOGGER.info("[Nexus] prepareCharacterData: player={} dedicated={} charId={}",
+                player.getName().getString(), player.server.isDedicated(), charId);
+
         if (charId == null) return;
 
         NexusCharacters.DATA_FILE_MANAGER.findById(charId).ifPresent(character -> {
-            // 1. Clear all stale files for this UUID first to ensure absolute isolation
-            ModDataScanner.clearPlayerModData(player);
+            NexusCharacters.setSelectedCharacter(player, character);
+            Path worldDir = player.server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();
 
-            // 2. Restore character data
-            // We restore EVERYTHING in modData to the world folder. 
-            // If it's a legacy prefixed key, we strip the prefix if it matches the current world.
-            // If it's a global key (like advancements/stats), we restore it as-is.
-            String worldId = CharacterDataManager.getWorldId(player);
-            String prefix = worldId + "::";
-            NbtCompound toRestore = new NbtCompound();
-
-            for (String key : character.modData().getKeys()) {
-                if (key.startsWith("_nexuscharacters:")) continue; // Skip internal cache
-
-                if (key.contains("::")) {
-                    if (key.startsWith(prefix)) {
-                        toRestore.put(key.substring(prefix.length()), character.modData().get(key));
-                    }
-                } else {
-                    toRestore.put(key, character.modData().get(key));
-                }
+            if (player.server.isDedicated()) {
+                // Multiplayer: vault transfer happens via packets (VaultReceiveReadyPayload flow).
+                // Nothing to do here.
+                NexusCharacters.LOGGER.info("[Nexus] prepareCharacterData: dedicated server — vault transfer via packets for {}.", character.name());
+                return;
             }
 
-            if (!toRestore.isEmpty()) {
-                ModDataScanner.restorePlayerModData(player, toRestore);
-                NexusCharacters.LOGGER.info("[Nexus] Restored mod data for {} in {}",
-                        player.getName().getString(), worldId);
-            }
+            // Singleplayer / integrated: copy vault files into world dir right now,
+            // before Minecraft's PlayerManager reads player.dat, advancements, stats.
+            VaultManager.clearWorldFiles(worldDir, player.getUuid());
+            VaultManager.copyVaultToWorld(character.id(), worldDir, player.getUuid());
+            NexusCharacters.LOGGER.info("[Nexus] Vault installed for singleplayer join: {}", character.name());
         });
     }
 }

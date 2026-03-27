@@ -45,9 +45,20 @@ public class DataFileManager {
         try {
             NbtCompound root = NbtIo.readCompressed(DATA_FILE_PATH, NbtSizeTracker.ofUnlimitedBytes());
             NbtList list = root.getList("characters", NbtElement.COMPOUND_TYPE);
-            return list.stream()
-                    .map(tag -> CharacterDto.fromNbt((NbtCompound) tag))
-                    .collect(Collectors.toCollection(ArrayList::new));
+            return list.stream().map(tag -> {
+                NbtCompound nbt = (NbtCompound) tag;
+                // Detect legacy record by presence of "playerNbt" key
+                if (nbt.contains("playerNbt")) {
+                    NexusCharacters.LOGGER.info("[DataFileManager] Migrating legacy character: {}",
+                            nbt.getString("name"));
+                    return CharacterDto.fromLegacyNbt(nbt);
+                    // Note: playerNbt and modData are silently dropped.
+                    // The vault for this character will be empty (fresh start).
+                    // A separate migration utility can be offered to extract data
+                    // from the legacy NBT into the vault if desired.
+                }
+                return CharacterDto.fromNbt(nbt);
+            }).collect(Collectors.toCollection(ArrayList::new));
         } catch (IOException e) {
             e.printStackTrace();
             return new ArrayList<>();
@@ -79,6 +90,8 @@ public class DataFileManager {
     public void deleteCharacter(UUID id) {
         characterList.removeIf(c -> c.id().equals(id));
         save();
+        // Also delete the vault
+        VaultManager.deleteVault(id);
     }
 
     public Optional<CharacterDto> findById(UUID id) {

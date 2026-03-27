@@ -107,14 +107,14 @@ public class CharacterCreationScreen extends Screen {
     }
 
     private void createCharacter(String name, String skinUsername, String skinValue, String skinSignature) {
-        NbtCompound playerNbt = new NbtCompound();
-        playerNbt.putInt("playerGameType", selectedGameMode.getId());
-        playerNbt.putBoolean("hardcore", isHardcore);
+        CharacterDto newCharacter = new CharacterDto(
+                UUID.randomUUID(), name, skinValue, skinSignature, skinUsername,
+                selectedGameMode.getId(), isHardcore
+        );
 
-        NexusCharacters.DATA_FILE_MANAGER.addCharacter(new CharacterDto(
-                UUID.randomUUID(), name, playerNbt, new NbtCompound(),
-                skinValue, skinSignature, skinUsername, new NbtCompound()
-        ));
+        NexusCharacters.DATA_FILE_MANAGER.addCharacter(newCharacter);
+        VaultManager.createVault(newCharacter.id());
+
         onAdd.run();
         client.setScreen(parent);
     }

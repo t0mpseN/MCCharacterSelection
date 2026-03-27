@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 
+
 public class NexusCharactersClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
@@ -38,13 +39,15 @@ public class NexusCharactersClient implements ClientModInitializer {
 			DummyWorldManager.initAtStartup();
 		});
 
-		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-			ClientWorld world = MinecraftClient.getInstance().world;
-			if (world != null) DummyWorldManager.captureFromWorld(world);
-		});
+		//ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+		//	ClientWorld world = MinecraftClient.getInstance().world;
+		//	if (world != null) DummyWorldManager.captureFromWorld(world);
+		//});
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-			NexusCharacters.selectedCharacter = null; // safety net
+			// Vault copy is handled server-side by PlayerManagerMixin.afterRemove.
+			// Just clear the client-side selected character reference.
+			NexusCharacters.selectedCharacter = null;
 		});
 	}
 }

@@ -5,7 +5,8 @@
 	"mixins": [
 		"PlayerManagerMixin",
 		"PlayerManagerAccessor",
-		"ServerPlayerEntityMixin"
+		"ServerPlayerEntityMixin",
+		"ServerConfigurationHandlerAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1
