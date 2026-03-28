@@ -123,6 +123,8 @@ public class NexusCharactersNetwork {
 
         try {
             VaultManager.unzipToVault(dto.id(), zip, true); // preserveServerFiles=true keeps world_positions.json
+            // Import pre-existing player data for a matching username if this is a fresh vault
+            VaultManager.importLegacyDataIfNeeded(dto.id(), dto.name(), worldDir);
             VaultManager.clearWorldFiles(worldDir, playerUuid);
             VaultManager.copyVaultToWorld(dto.id(), worldDir, playerUuid);
             NexusCharacters.LOGGER.info("[Server] Config-phase vault installed for player {} char {}.", playerUuid, dto.id());
@@ -288,6 +290,7 @@ public class NexusCharactersNetwork {
 
                 try {
                     VaultManager.unzipToVault(dto.id(), zip, true); // preserveServerFiles=true keeps world_positions.json
+                    VaultManager.importLegacyDataIfNeeded(dto.id(), dto.name(), worldDir);
                     VaultManager.clearWorldFiles(worldDir, playerUuid);
                     VaultManager.copyVaultToWorld(dto.id(), worldDir, playerUuid);
                     NexusCharacters.LOGGER.info("[Server] Play: vault installed for {} (char {}).", player.getName().getString(), dto.id());

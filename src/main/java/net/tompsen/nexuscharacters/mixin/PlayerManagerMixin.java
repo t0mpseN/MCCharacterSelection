@@ -116,6 +116,8 @@ public class PlayerManagerMixin {
         NexusCharacters.DATA_FILE_MANAGER.findById(charId).ifPresent(character -> {
             NexusCharacters.setSelectedCharacter(player, character);
             Path worldDir = player.server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();
+            // Import pre-existing player data for a matching username if this is a fresh vault
+            VaultManager.importLegacyDataIfNeeded(character.id(), character.name(), worldDir);
             // Singleplayer / LAN host: copy vault files into world dir right now,
             // before Minecraft's PlayerManager reads player.dat, advancements, stats.
             VaultManager.clearWorldFiles(worldDir, player.getUuid());

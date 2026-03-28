@@ -221,6 +221,70 @@ public class VaultManager {
         } catch (IOException ignored) {}
     }
 
+    /**
+     * If this character's vault has no playerdata yet, looks for a pre-existing player in the
+     * world whose username matches the character name and imports their data into the vault.
+     * Resolution order:
+     *   1. usercache.json (online-mode servers — exact name match)
+     *   2. Offline UUID: {@code UUID.nameUUIDFromBytes("OfflinePlayer:<name>".getBytes("UTF-8"))}
+     *      (singleplayer and offline-mode servers)
+     *
+     * @return true if legacy data was found and imported
+     */
+    public static boolean importLegacyDataIfNeeded(UUID characterId, String characterName, Path worldDir) {
+        Path vaultPlayerData = getVaultDir(characterId).resolve("playerdata/__player__.dat");
+        if (Files.exists(vaultPlayerData)) return false; // vault already has data
+
+        Path playerDataDir = worldDir.resolve("playerdata");
+        if (!Files.isDirectory(playerDataDir)) return false;
+
+        // Try to resolve the legacy UUID for this character name
+        UUID legacyUuid = resolveLegacyUuid(characterName, worldDir);
+        if (legacyUuid == null) return false;
+
+        // Check if a playerdata file exists for that UUID
+        Path legacyFile = playerDataDir.resolve(legacyUuid + ".dat");
+        if (!Files.exists(legacyFile)) return false;
+
+        NexusCharacters.LOGGER.info("[Nexus] Importing legacy data for character '{}' from uuid {} into vault {}",
+                characterName, legacyUuid, characterId);
+
+        // Copy all per-player files from the world into the vault, tokenizing the legacy UUID
+        copyWorldToVault(characterId, worldDir, legacyUuid);
+        return true;
+    }
+
+    /**
+     * Resolves a legacy player UUID from a username.
+     * Checks usercache.json first, then falls back to the offline UUID formula.
+     * Returns null only if the resulting UUID has no matching playerdata file.
+     */
+    private static UUID resolveLegacyUuid(String name, Path worldDir) {
+        // 1. usercache.json lookup (online mode)
+        Path usercache = FabricLoader.getInstance().getGameDir().resolve("usercache.json");
+        if (Files.exists(usercache)) {
+            try {
+                JsonArray arr = JsonParser.parseString(Files.readString(usercache)).getAsJsonArray();
+                for (JsonElement el : arr) {
+                    JsonObject obj = el.getAsJsonObject();
+                    if (name.equalsIgnoreCase(obj.get("name").getAsString())) {
+                        return UUID.fromString(obj.get("uuid").getAsString());
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 2. Offline UUID: UUID.nameUUIDFromBytes("OfflinePlayer:<name>")
+        try {
+            byte[] bytes = ("OfflinePlayer:" + name).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            UUID offlineUuid = UUID.nameUUIDFromBytes(bytes);
+            Path offlineFile = worldDir.resolve("playerdata/" + offlineUuid + ".dat");
+            if (Files.exists(offlineFile)) return offlineUuid;
+        } catch (Exception ignored) {}
+
+        return null;
+    }
+
     public static void copyWorldToVault(UUID characterId, Path worldDir, UUID playerUuid) {
         Path vaultDir = getVaultDir(characterId);
         String uuidStr = playerUuid.toString();

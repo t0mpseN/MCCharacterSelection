@@ -5,6 +5,7 @@
 	"mixins": [
 		"PlayerManagerMixin",
 		"PlayerManagerAccessor",
+		"PlayerEntityMixin",
 		"ServerPlayerEntityMixin",
 		"ServerConfigurationHandlerAccessor"
 	],
